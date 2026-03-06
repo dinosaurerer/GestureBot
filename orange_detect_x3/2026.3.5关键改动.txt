@@ -1,0 +1,67 @@
+● 分析完成！以下是 test_orange_ges.py 相比之前版本的主要改动：
+
+  主要改动总结
+
+  1. 删除 camera_rosmaster 依赖
+
+  # 删除了这行：
+  # from camera_rosmaster import Rosmaster_Camera
+  直接使用 cv2.VideoCapture(0) 初始化摄像头
+
+  ---
+  2. 新增 X3WheelController 类（第27-103行）
+
+  替换了原来的 MecanumWheelController，参考 rosmaster_main.py 的 ctrl_car_x3 函数：
+
+  ┌──────────┬────────────────────────────────────────────────────────────┐
+  │   特性   │                            说明                            │
+  ├──────────┼────────────────────────────────────────────────────────────┤
+  │ 运动状态 │ 0=停止, 1=前进, 2=后退, 3=左移, 4=右移, 5=左旋转, 6=右旋转 │
+  ├──────────┼────────────────────────────────────────────────────────────┤
+  │ 控制方法 │ 使用 bot.set_car_run(state, speed, stabilize)              │
+  ├──────────┼────────────────────────────────────────────────────────────┤
+  │ 速度参数 │ g_speed_ctrl_xy 和 g_speed_ctrl_z 的设计模式               │
+  └──────────┴────────────────────────────────────────────────────────────┘
+
+  # 停止: bot.set_car_run(0, stabilize_state)
+  # 前进: bot.set_car_run(1, speed_xy, stabilize_state)
+  # 旋转: bot.set_car_run(state, speed_z)  # state=5或6
+
+  ---
+  3. 摄像头初始化（第272-280行）
+
+  def __init_camera(self):
+      self.__camera = cv.VideoCapture(0)
+      self.__camera.set(cv.CAP_PROP_FRAME_WIDTH, 640)
+      self.__camera.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
+  参考 orange_detect.py 的原生 OpenCV 方式
+
+  ---
+  4. 小车初始化顺序（第245-270行）
+
+  参考 rosmaster_main.py 的初始化流程：
+  1. 先创建接收线程 create_receive_threading()
+  2. 再设置车型 set_car_type(CARTYPE_X3)
+  3. 发送停止指令确保初始状态正确
+
+  self.__bot.create_receive_threading()  # 先启动线程
+  time.sleep(0.1)
+  self.__bot.set_car_type(self.__bot.CARTYPE_X3)  # 再设置车型
+  time.sleep(0.1)
+  self.__wheel_controller.stop()  # 发送停止指令
+
+  ---
+  5. 滴滴滴提示音（第617-620行）
+
+  和 rosmaster_main.py 第846-848行完全一致：
+  for i in range(2):  # 注意：这里实际上是2次，不是3次
+      control_system._OrangeDetectControlSystem__bot.set_beep(50)
+      time.sleep(0.2)
+
+  ---
+  6. 其他改动
+
+  - 删除 import queue 不必要的导入
+  - 将 from flask import request 移到函数内部（第523行），避免循环导入
+  - SystemState 增加 motion_state 和 motion_speed 字段
+  - 显示文本改为 "Rosmaster X3 Control"
