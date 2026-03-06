@@ -57,7 +57,7 @@ class X3WheelController:
 
     def set_speed_percent(self, speed):
         self.__speed_percent = max(0, min(100, speed))
-        print(f"速度设置为: {self.__speed_percent}%")
+        print(f"Speed set to: {self.__speed_percent}%")
         # 更新运动速度
         for key in self.__motion_speeds:
             if key != "FORWARD" and key != "BACKWARD":
@@ -72,7 +72,7 @@ class X3WheelController:
 
     def execute(self, motion_name, custom_speed=None):
         if motion_name not in self.__motion_states:
-            print(f"未知的运动模式: {motion_name}")
+            print(f"Unknown motion mode: {motion_name}")
             return None
 
         state = self.__motion_states[motion_name]
@@ -80,7 +80,7 @@ class X3WheelController:
         if motion_name == "STOP":
             # 停止
             self.__bot.set_car_run(0, self.__car_stabilize_state)
-            print(f"执行: {motion_name}")
+            print(f"Execute: {motion_name}")
             return {"state": state, "speed": 0}
         else:
             # 运动
@@ -90,7 +90,7 @@ class X3WheelController:
                 speed = self.__motion_speeds[motion_name]
 
             self.__bot.set_car_run(state, speed, self.__car_stabilize_state)
-            print(f"执行: {motion_name} | state={state}, speed={speed}")
+            print(f"Execute: {motion_name} | state={state}, speed={speed}")
             return {"state": state, "speed": speed}
 
     def stop(self):
@@ -99,7 +99,7 @@ class X3WheelController:
     def set_stabilize(self, enable):
         """设置自稳开关"""
         self.__car_stabilize_state = 1 if enable else 0
-        print(f"自稳状态: {'开启' if enable else '关闭'}")
+        print(f"Stabilize: {'ON' if enable else 'OFF'}")
 
 
 # ========== 系统状态管理 ==========
@@ -123,12 +123,18 @@ class SystemState:
         """更新 orange 检测状态"""
         with self.__lock:
             self.__orange_detected = detected
-            self.__confidence = confidence
-            if detected and confidence > 0.5:
-                self.__current_gesture = "FORWARD"
-                self.__total_detections += 1
+            # 只在检测到时更新置信度，否则保持上次的值
+            if detected:
+                self.__confidence = confidence
+                # 只有置信度超过阈值才增加检测次数
+                if confidence > 0.5:
+                    self.__current_gesture = "FORWARD"
+                    self.__total_detections += 1
+                else:
+                    self.__current_gesture = "STOP"
             else:
                 self.__current_gesture = "STOP"
+                # 未检测到时，不重置置信度，保持上次的检测置信度
 
     def update_fps(self, fps):
         with self.__lock:
@@ -236,10 +242,10 @@ class OrangeDetectControlSystem:
         try:
             # 加载 YOLO11n 模型
             self.__model = YOLO(model_path)
-            logger.info(f"YOLO 模型加载成功: {model_path}")
+            logger.info(f"YOLO model loaded: {model_path}")
             system_state.set_model_info(True)
         except Exception as e:
-            logger.error(f"YOLO 模型加载失败: {e}")
+            logger.error(f"YOLO model load failed: {e}")
             system_state.set_model_info(False)
 
     def __init_bot(self):
@@ -265,9 +271,9 @@ class OrangeDetectControlSystem:
             self.__wheel_controller.stop()
             time.sleep(0.1)
 
-            logger.info("小车初始化成功 (Rosmaster X3)")
+            logger.info("Bot initialized (Rosmaster X3)")
         except Exception as e:
-            logger.error(f"小车初始化失败: {e}")
+            logger.error(f"Bot initialization failed: {e}")
 
     def __init_camera(self):
         """初始化摄像头 - 使用 cv2.VideoCapture"""
@@ -275,9 +281,9 @@ class OrangeDetectControlSystem:
             self.__camera = cv.VideoCapture(0)
             self.__camera.set(cv.CAP_PROP_FRAME_WIDTH, 640)
             self.__camera.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
-            logger.info("USB摄像头初始化成功")
+            logger.info("USB camera initialized")
         except Exception as e:
-            logger.error(f"摄像头初始化失败: {e}")
+            logger.error(f"Camera initialization failed: {e}")
 
     def set_speed(self, speed):
         """设置速度"""
@@ -289,12 +295,12 @@ class OrangeDetectControlSystem:
     def set_conf_threshold(self, threshold):
         """设置置信度阈值"""
         self.__conf_threshold = max(0.1, min(1.0, threshold))
-        logger.info(f"置信度阈值设置为: {self.__conf_threshold}")
+        logger.info(f"Confidence threshold set: {self.__conf_threshold}")
 
     def execute_motion(self, motion_name):
         """执行运动指令"""
         if self.__wheel_controller is None:
-            logger.info(f"[模拟] 执行: {motion_name}")
+            logger.info(f"[Simulate] Execute: {motion_name}")
             return None
 
         motion_info = self.__wheel_controller.execute(motion_name)
@@ -343,7 +349,7 @@ class OrangeDetectControlSystem:
             return detected, max_confidence, annotated_frame
 
         except Exception as e:
-            logger.error(f"Orange 检测错误: {e}")
+            logger.error(f"Orange detection error: {e}")
             return False, 0.0, frame
 
     def process_frame(self, frame):
@@ -359,8 +365,8 @@ class OrangeDetectControlSystem:
         # 检测 orange
         detected, confidence, annotated_frame = self.detect_orange(frame)
 
-        # 绘制系统标题
-        cv.putText(annotated_frame, "Orange Detection - Rosmaster X3 Control",
+        # 绘制系统标题 (使用英文避免中文乱码)
+        cv.putText(annotated_frame, "Orange Detection - Rosmaster X3",
                   (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
         current_time = time.time()
@@ -387,28 +393,28 @@ class OrangeDetectControlSystem:
                     self.__last_action = "STOP"
                     system_state.update_orange_detected(False, 0)
 
-        # 绘制检测状态
+        # 绘制检测状态 (使用英文)
         if self.__current_action != "STOP":
-            status_text = f"检测到 Orange! (置信度: {confidence:.2f}) | 前进中..."
+            status_text = f"Orange Detected! (Conf: {confidence:.2f}) | Moving Forward"
             status_color = (0, 255, 0)
             # 绘制绿色边框表示检测
             cv.rectangle(annotated_frame, (5, 40),
                        (annotated_frame.shape[1] - 5, 75),
                        (0, 255, 0), 2)
         else:
-            status_text = "等待检测 Orange..."
+            status_text = "Waiting for Orange Detection..."
             status_color = (0, 100, 255)
 
         cv.putText(annotated_frame, status_text,
                   (10, 60), cv.FONT_HERSHEY_SIMPLEX, 0.6, status_color, 2)
 
         # 绘制速度信息
-        cv.putText(annotated_frame, f"速度: {self.__speed_percent}%",
+        cv.putText(annotated_frame, f"Speed: {self.__speed_percent}%",
                   (annotated_frame.shape[1] - 150, 30),
                   cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
 
         # 绘制阈值信息
-        cv.putText(annotated_frame, f"阈值: {self.__conf_threshold}",
+        cv.putText(annotated_frame, f"Thresh: {self.__conf_threshold}",
                   (annotated_frame.shape[1] - 150, 60),
                   cv.FONT_HERSHEY_SIMPLEX, 0.6, (200, 150, 0), 2)
 
@@ -526,12 +532,12 @@ def control_robot():
 
     if action == 'stop':
         control_system.execute_motion("STOP")
-        logger.info("Web 手动控制: 停止")
+        logger.info("Web manual control: Stop")
     elif action in OrangeDetectControlSystem.MOTION_DESCRIPTIONS:
         control_system.execute_motion(action)
-        logger.info(f"Web 手动控制: {action}")
+        logger.info(f"Web manual control: {action}")
     else:
-        return jsonify({"success": False, "message": "未知指令"})
+        return jsonify({"success": False, "message": "Unknown command"})
 
     return jsonify({"success": True, "action": action})
 
@@ -550,7 +556,7 @@ def settings():
         if threshold is not None:
             control_system.set_conf_threshold(float(threshold))
 
-        return jsonify({"success": True, "message": "设置已更新"})
+        return jsonify({"success": True, "message": "Settings updated"})
 
     return jsonify({"success": True})
 
@@ -566,12 +572,12 @@ def get_logs():
 
 def start_web_server(host='0.0.0.0', port=6500):
     """启动 Web 服务器"""
-    logger.info(f"Web 服务器启动: http://{host}:{port}")
+    logger.info(f"Web server starting: http://{host}:{port}")
     try:
         server = pywsgi.WSGIServer((host, port), app)
         server.serve_forever()
     except KeyboardInterrupt:
-        logger.info("Web 服务器停止")
+        logger.info("Web server stopped")
 
 
 # ========== 主程序 ==========
@@ -598,12 +604,12 @@ def main():
             web_host = arg.split("=")[1]
 
     print("\n" + "="*60)
-    print("    Orange 检测 - Rosmaster X3 Web 控制系统")
+    print("    Orange Detection - Rosmaster X3 Web Control")
     print("="*60)
-    print(f"Web 地址: http://{web_host}:{web_port}")
-    print(f"模型: YOLO11n.pt")
-    print(f"检测目标: Orange (类别 ID: {OrangeDetectControlSystem.ORANGE_CLASS_ID})")
-    print(f"速度: {speed_percent}%")
+    print(f"Web URL: http://{web_host}:{web_port}")
+    print(f"Model: YOLO11n.pt")
+    print(f"Detection Target: Orange (Class ID: {OrangeDetectControlSystem.ORANGE_CLASS_ID})")
+    print(f"Speed: {speed_percent}%")
     print("="*60 + "\n")
 
     global control_system
@@ -631,7 +637,7 @@ def main():
             time.sleep(1)
     except KeyboardInterrupt:
         control_system.stop()
-        print("\n系统已停止")
+        print("\nSystem stopped")
 
 
 if __name__ == '__main__':
