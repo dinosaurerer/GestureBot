@@ -403,8 +403,8 @@
                     <div class="video-container">
                         <img src="/video_feed" alt="Video Stream" id="videoStream">
                         <div class="status-overlay">
-                            <span class="status-indicator" id="statusIndicator"></span>
-                            <span id="connectionStatus">已连接</span>
+                            <span class="status-indicator inactive" id="statusIndicator"></span>
+                            <span id="connectionStatus">连接中...</span>
                         </div>
                     </div>
 
@@ -537,6 +537,92 @@
     <script>
         let currentAction = 'STOP';
         let updateInterval = null;
+        let videoConnected = false;
+        let connectionCheckInterval = null;
+
+        // 本地日志存储（从后端获取日志之前使用）
+        let localLogs = [];
+
+        // 添加本地日志
+        function addLog(level, message) {
+            const now = new Date();
+            const timestamp = now.getHours().toString().padStart(2, '0') + ':' +
+                             now.getMinutes().toString().padStart(2, '0') + ':' +
+                             now.getSeconds().toString().padStart(2, '0');
+
+            localLogs.push({
+                time: timestamp,
+                level: level,
+                message: message
+            });
+
+            // 只保留最近50条
+            if (localLogs.length > 50) {
+                localLogs.shift();
+            }
+
+            // 更新UI
+            updateLogsUI();
+        }
+
+        // 更新日志UI
+        function updateLogsUI() {
+            const container = document.getElementById('logsContainer');
+            container.innerHTML = '';
+
+            localLogs.slice().reverse().forEach(log => {
+                const div = document.createElement('div');
+                div.className = 'log-item';
+                div.innerHTML = `
+                    <span class="log-time">${log.time}</span>
+                    <span class="log-level ${log.level}">${log.level}</span>
+                    <span>${log.message}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // 视频流连接状态检测
+        const videoStream = document.getElementById('videoStream');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const connectionStatus = document.getElementById('connectionStatus');
+
+        // 尝试检测视频流是否可用
+        function checkVideoConnection() {
+            const img = new Image();
+            img.onload = function() {
+                if (!videoConnected) {
+                    videoConnected = true;
+                    statusIndicator.classList.remove('inactive');
+                    statusIndicator.classList.add('active');
+                    connectionStatus.textContent = '已连接';
+                    addLog('INFO', '视频流已连接');
+                }
+            };
+            img.onerror = function() {
+                if (videoConnected) {
+                    videoConnected = false;
+                    statusIndicator.classList.remove('active');
+                    statusIndicator.classList.add('inactive');
+                    connectionStatus.textContent = '连接失败';
+                    addLog('ERROR', '视频流连接失败，请检查后端是否运行');
+                }
+            };
+            img.src = videoStream.src + '?t=' + Date.now();
+        }
+
+        // 定期检查视频流连接状态
+        function startConnectionCheck() {
+            if (connectionCheckInterval) {
+                clearInterval(connectionCheckInterval);
+            }
+
+            // 初始检查
+            setTimeout(checkVideoConnection, 1000);
+
+            // 每5秒检查一次
+            connectionCheckInterval = setInterval(checkVideoConnection, 5000);
+        }
 
         // 更新系统状态
         async function updateStatus() {
@@ -568,6 +654,13 @@
                 }
             } catch (error) {
                 console.error('更新状态失败:', error);
+                // API调用失败，可能后端未运行
+                if (videoConnected) {
+                    videoConnected = false;
+                    statusIndicator.classList.remove('active');
+                    statusIndicator.classList.add('inactive');
+                    connectionStatus.textContent = '后端未运行';
+                }
             }
         }
 
@@ -598,7 +691,7 @@
             }
         }
 
-        // 更新日志
+        // 更新后端日志
         async function updateLogs() {
             try {
                 const response = await fetch('/api/logs');
@@ -626,7 +719,7 @@
 
         // 控制按钮事件
         document.querySelectorAll('.control-btn[data-action]').forEach(btn => {
-            btn.addEventListener('click', async () => {
+            btn.addEventListener('click', async function() {
                 const action = btn.dataset.action;
                 try {
                     const response = await fetch('/api/control', {
@@ -639,7 +732,9 @@
                     if (result.success) {
                         // 视觉反馈
                         btn.classList.add('active');
-                        setTimeout(() => btn.classList.remove('active'), 200);
+                        setTimeout(function() {
+                            btn.classList.remove('active');
+                        }, 200);
                     }
                 } catch (error) {
                     console.error('控制失败:', error);
@@ -659,6 +754,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ speed: parseInt(this.value) })
                 });
+                addLog('INFO', '速度设置为: ' + this.value + '%');
             } catch (error) {
                 console.error('设置速度失败:', error);
             }
@@ -676,6 +772,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ threshold: this.value / 100 })
                 });
+                addLog('INFO', '置信度阈值设置为: ' + (this.value / 100).toFixed(2));
             } catch (error) {
                 console.error('设置阈值失败:', error);
             }
@@ -683,23 +780,28 @@
 
         // 启动状态更新
         function startUpdates() {
-            updateInterval = setInterval(() => {
+            updateInterval = setInterval(function() {
                 updateStatus();
                 updateLogs();
             }, 1000);
         }
 
         // 页面加载完成后启动
-        window.addEventListener('load', () => {
+        window.addEventListener('load', function() {
+            addLog('INFO', '页面已加载，正在连接...');
             startUpdates();
+            startConnectionCheck();
             updateStatus();
             updateLogs();
         });
 
         // 页面卸载时停止更新
-        window.addEventListener('beforeunload', () => {
+        window.addEventListener('beforeunload', function() {
             if (updateInterval) {
                 clearInterval(updateInterval);
+            }
+            if (connectionCheckInterval) {
+                clearInterval(connectionCheckInterval);
             }
         });
     </script>
