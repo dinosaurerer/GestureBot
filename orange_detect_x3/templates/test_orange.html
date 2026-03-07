@@ -570,7 +570,9 @@
             const container = document.getElementById('logsContainer');
             container.innerHTML = '';
 
-            localLogs.slice().reverse().forEach(log => {
+            var reversedLogs = localLogs.slice().reverse();
+            for (var i = 0; i < reversedLogs.length; i++) {
+                var log = reversedLogs[i];
                 const div = document.createElement('div');
                 div.className = 'log-item';
                 div.innerHTML = `
@@ -579,7 +581,7 @@
                     <span>${log.message}</span>
                 `;
                 container.appendChild(div);
-            });
+            };
         }
 
         // 视频流连接状态检测
@@ -589,26 +591,27 @@
 
         // 尝试检测视频流是否可用
         function checkVideoConnection() {
-            const img = new Image();
-            img.onload = function() {
+            console.log('[DEBUG] 检查视频流连接状态...');
+            // 检查主视频元素是否已加载
+            if (videoStream.complete && videoStream.naturalHeight !== 0) {
                 if (!videoConnected) {
                     videoConnected = true;
                     statusIndicator.classList.remove('inactive');
                     statusIndicator.classList.add('active');
-                    connectionStatus.textContent = '已连接';
-                    addLog('INFO', '视频流已连接');
+                    connectionStatus.textContent = 'Connected';
+                    addLog('INFO', 'Video stream connected');
+                    console.log('[DEBUG] 视频流已连接');
                 }
-            };
-            img.onerror = function() {
+            } else {
                 if (videoConnected) {
                     videoConnected = false;
                     statusIndicator.classList.remove('active');
                     statusIndicator.classList.add('inactive');
-                    connectionStatus.textContent = '连接失败';
-                    addLog('ERROR', '视频流连接失败，请检查后端是否运行');
+                    connectionStatus.textContent = 'Connecting...';
+                    addLog('WARNING', 'Video stream disconnected');
+                    console.log('[DEBUG] 视频流断开');
                 }
-            };
-            img.src = videoStream.src + '?t=' + Date.now();
+            }
         }
 
         // 定期检查视频流连接状态
@@ -617,11 +620,28 @@
                 clearInterval(connectionCheckInterval);
             }
 
-            // 初始检查
-            setTimeout(checkVideoConnection, 1000);
+            // 监听视频流加载事件
+            videoStream.onload = function() {
+                console.log('[DEBUG] 视频流加载完成');
+                checkVideoConnection();
+            };
 
-            // 每5秒检查一次
-            connectionCheckInterval = setInterval(checkVideoConnection, 5000);
+            videoStream.onerror = function() {
+                console.log('[DEBUG] 视频流加载失败');
+                if (videoConnected) {
+                    videoConnected = false;
+                    statusIndicator.classList.remove('active');
+                    statusIndicator.classList.add('inactive');
+                    connectionStatus.textContent = 'Connection Failed';
+                    addLog('ERROR', 'Video stream connection failed');
+                }
+            };
+
+            // 初始检查
+            setTimeout(checkVideoConnection, 500);
+
+            // 每2秒检查一次
+            connectionCheckInterval = setInterval(checkVideoConnection, 20000);
         }
 
         // 更新系统状态
@@ -701,7 +721,9 @@
                     const container = document.getElementById('logsContainer');
                     container.innerHTML = '';
 
-                    result.data.reverse().forEach(log => {
+                    var reversedData = result.data.slice().reverse();
+            for (var i = 0; i < reversedData.length; i++) {
+                var log = reversedData[i];
                         const div = document.createElement('div');
                         div.className = 'log-item';
                         div.innerHTML = `
@@ -710,7 +732,7 @@
                             <span>${log.message}</span>
                         `;
                         container.appendChild(div);
-                    });
+                    };
                 }
             } catch (error) {
                 console.error('更新日志失败:', error);
@@ -718,29 +740,46 @@
         }
 
         // 控制按钮事件
-        document.querySelectorAll('.control-btn[data-action]').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const action = btn.dataset.action;
-                try {
-                    const response = await fetch('/api/control', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action })
-                    });
-                    const result = await response.json();
+        var controlButtons = document.querySelectorAll('.control-btn[data-action]');
+        console.log('[DEBUG] 找到控制按钮数量:', controlButtons.length);
 
-                    if (result.success) {
-                        // 视觉反馈
-                        btn.classList.add('active');
-                        setTimeout(function() {
-                            btn.classList.remove('active');
-                        }, 200);
+        for (var i = 0; i < controlButtons.length; i++) {
+            (function(btn) {
+                console.log('[DEBUG] 绑定按钮事件:', btn.dataset.action);
+                btn.addEventListener('click', async function() {
+                    const action = btn.dataset.action;
+                    console.log('[DEBUG] 点击按钮:', action);
+                    console.log('[DEBUG] 发送请求到 /api/control');
+                    addLog('INFO', 'Sending control command: ' + action);
+
+                    try {
+                        const response = await fetch('/api/control', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action })
+                        });
+                        console.log('[DEBUG] 收到响应, 状态码:', response.status);
+
+                        const result = await response.json();
+                        console.log('[DEBUG] 响应内容:', result);
+
+                        if (result.success) {
+                            addLog('INFO', 'Command executed: ' + action);
+                            // 视觉反馈
+                            btn.classList.add('active');
+                            setTimeout(function() {
+                                btn.classList.remove('active');
+                            }, 200);
+                        } else {
+                            addLog('ERROR', 'Command failed: ' + (result.message || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('[DEBUG] 控制失败:', error);
+                        addLog('ERROR', 'Control request failed: ' + error.message);
                     }
-                } catch (error) {
-                    console.error('控制失败:', error);
-                }
-            });
-        });
+                });
+            })(controlButtons[i]);
+        }
 
         // 速度滑块
         document.getElementById('speedSlider').addEventListener('input', function() {
@@ -783,7 +822,7 @@
             updateInterval = setInterval(function() {
                 updateStatus();
                 updateLogs();
-            }, 1000);
+            }, 10000);
         }
 
         // 页面加载完成后启动

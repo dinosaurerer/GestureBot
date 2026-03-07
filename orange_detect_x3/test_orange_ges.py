@@ -3,6 +3,10 @@
 # 测试文件 - 使用 YOLO11n.pt 检测 orange 控制小车前进
 # 基于 YOLO 的人车运动交互控制系统 - 毕业设计测试版
 # 适配 Rosmaster X3 车型
+#
+# 架构说明:
+#   - 独立视频处理线程: 摄像头读取 -> YOLO推理 -> 保存latest_frame
+#   - Flask请求处理: 直接发送latest_frame，不做推理，避免阻塞
 
 import cv2 as cv
 import time
@@ -84,12 +88,20 @@ class X3WheelController:
             return {"state": state, "speed": 0}
         else:
             # 运动
+
             if custom_speed is not None:
                 speed = max(0, min(100, custom_speed))
             else:
                 speed = self.__motion_speeds[motion_name]
 
-            self.__bot.set_car_run(state, speed, self.__car_stabilize_state)
+            # --- 修改下面这段判断逻辑 ---
+            if state == 5 or state == 6:
+                # 旋转运动，官方接口只接受2个参数
+                self.__bot.set_car_run(state, speed)
+            else:
+                # 平移/前后运动，接受3个参数
+                self.__bot.set_car_run(state, speed, self.__car_stabilize_state)
+
             print(f"Execute: {motion_name} | state={state}, speed={speed}")
             return {"state": state, "speed": speed}
 
@@ -123,18 +135,12 @@ class SystemState:
         """更新 orange 检测状态"""
         with self.__lock:
             self.__orange_detected = detected
-            # 只在检测到时更新置信度，否则保持上次的值
-            if detected:
-                self.__confidence = confidence
-                # 只有置信度超过阈值才增加检测次数
-                if confidence > 0.5:
-                    self.__current_gesture = "FORWARD"
-                    self.__total_detections += 1
-                else:
-                    self.__current_gesture = "STOP"
+            self.__confidence = confidence
+            if detected and confidence > 0.5:
+                self.__current_gesture = "FORWARD"
+                self.__total_detections += 1
             else:
                 self.__current_gesture = "STOP"
-                # 未检测到时，不重置置信度，保持上次的检测置信度
 
     def update_fps(self, fps):
         with self.__lock:
@@ -236,6 +242,10 @@ class OrangeDetectControlSystem:
         # 控制状态
         self.__running = True
         self.__latest_frame = None
+        self.__frame_lock = threading.Lock()  # 保护 latest_frame 的锁
+
+        # 视频处理线程
+        self.__video_thread = None
 
     def __load_yolo_model(self, model_path):
         """加载 YOLO 模型"""
@@ -271,9 +281,9 @@ class OrangeDetectControlSystem:
             self.__wheel_controller.stop()
             time.sleep(0.1)
 
-            logger.info("Bot initialized (Rosmaster X3)")
+            logger.info("Rosmaster X3 initialized successfully")
         except Exception as e:
-            logger.error(f"Bot initialization failed: {e}")
+            logger.error(f"Car initialization failed: {e}")
 
     def __init_camera(self):
         """初始化摄像头 - 使用 cv2.VideoCapture"""
@@ -295,12 +305,12 @@ class OrangeDetectControlSystem:
     def set_conf_threshold(self, threshold):
         """设置置信度阈值"""
         self.__conf_threshold = max(0.1, min(1.0, threshold))
-        logger.info(f"Confidence threshold set: {self.__conf_threshold}")
+        logger.info(f"Confidence threshold set to: {self.__conf_threshold}")
 
     def execute_motion(self, motion_name):
         """执行运动指令"""
         if self.__wheel_controller is None:
-            logger.info(f"[Simulate] Execute: {motion_name}")
+            logger.info(f"[Simulation] Execute: {motion_name}")
             return None
 
         motion_info = self.__wheel_controller.execute(motion_name)
@@ -365,8 +375,8 @@ class OrangeDetectControlSystem:
         # 检测 orange
         detected, confidence, annotated_frame = self.detect_orange(frame)
 
-        # 绘制系统标题 (使用英文避免中文乱码)
-        cv.putText(annotated_frame, "Orange Detection - Rosmaster X3",
+        # 绘制系统标题
+        cv.putText(annotated_frame, "Orange Detection - Rosmaster X3 Control",
                   (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
         current_time = time.time()
@@ -393,9 +403,9 @@ class OrangeDetectControlSystem:
                     self.__last_action = "STOP"
                     system_state.update_orange_detected(False, 0)
 
-        # 绘制检测状态 (使用英文)
+        # 绘制检测状态
         if self.__current_action != "STOP":
-            status_text = f"Orange Detected! (Conf: {confidence:.2f}) | Moving Forward"
+            status_text = f"Orange Detected! (Confidence: {confidence:.2f}) | Moving Forward..."
             status_color = (0, 255, 0)
             # 绘制绿色边框表示检测
             cv.rectangle(annotated_frame, (5, 40),
@@ -409,19 +419,58 @@ class OrangeDetectControlSystem:
                   (10, 60), cv.FONT_HERSHEY_SIMPLEX, 0.6, status_color, 2)
 
         # 绘制速度信息
-        cv.putText(annotated_frame, f"Speed: {self.__speed_percent}%",
+        cv.putText(annotated_frame, f"SPEED: {self.__speed_percent}%",
                   (annotated_frame.shape[1] - 150, 30),
                   cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
 
         # 绘制阈值信息
-        cv.putText(annotated_frame, f"Thresh: {self.__conf_threshold}",
+        cv.putText(annotated_frame, f"CONF: {self.__conf_threshold}",
                   (annotated_frame.shape[1] - 150, 60),
                   cv.FONT_HERSHEY_SIMPLEX, 0.6, (200, 150, 0), 2)
 
-        # 保存最新帧
-        self.__latest_frame = annotated_frame
+        # 保存最新帧 (线程安全)
+        with self.__frame_lock:
+            self.__latest_frame = annotated_frame
 
         return annotated_frame
+
+    def get_latest_frame(self):
+        """获取最新处理后的帧 (线程安全)"""
+        with self.__frame_lock:
+            if self.__latest_frame is None:
+                return None
+            return self.__latest_frame.copy()
+
+    def _video_loop(self):
+        """视频处理循环 - 在独立线程中运行"""
+        logger.info("Video processing thread started")
+        m_fps = 0
+        t_start = time.time()
+
+        while self.__running and self.__camera is not None:
+            try:
+                success, frame = self.__camera.read()
+                if success:
+                    self.process_frame(frame)
+
+                    # 计算FPS
+                    m_fps += 1
+                    fps = m_fps / (time.time() - t_start)
+                    system_state.update_fps(fps)
+                else:
+                    logger.warning("Failed to read frame from camera")
+                    time.sleep(0.1)
+            except Exception as e:
+                logger.error(f"Error in video loop: {e}")
+                time.sleep(0.1)
+
+        logger.info("Video processing thread stopped")
+
+    def start_video_thread(self):
+        """启动视频处理线程"""
+        self.__video_thread = threading.Thread(target=self._video_loop, daemon=True)
+        self.__video_thread.start()
+        logger.info("Video thread started")
 
     def stop(self):
         """停止系统"""
@@ -432,6 +481,8 @@ class OrangeDetectControlSystem:
             self.__bot.set_beep(100)
         if self.__camera:
             self.__camera.release()
+        if self.__video_thread and self.__video_thread.is_alive():
+            self.__video_thread.join(timeout=2)
 
 
 # ========== 简单日志系统 ==========
@@ -463,6 +514,10 @@ class SimpleLogger:
     def error(self, message):
         self.add("ERROR", message)
 
+    def debug(self, msg):
+        # Debug logging - enable if needed
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] [DEBUG] {msg}")
+
     def get_all(self):
         with self.__lock:
             return list(self.__logs)
@@ -486,29 +541,26 @@ def index():
 
 @app.route('/video_feed')
 def video_feed():
-    """视频流"""
+    """视频流 - 直接发送最新处理的帧，不做推理"""
     def generate():
-        m_fps = 0
-        t_start = time.time()
+        logger.info("[VIDEO] Client connected to video feed")
 
         while control_system and control_system._OrangeDetectControlSystem__running:
-            success, frame = control_system._OrangeDetectControlSystem__camera.read()
-            if success:
-                annotated_frame = control_system.process_frame(frame)
+            # 获取最新帧 (线程安全)
+            frame = control_system.get_latest_frame()
 
-                # 计算FPS
-                m_fps += 1
-                fps = m_fps / (time.time() - t_start)
-                system_state.update_fps(fps)
-
+            if frame is not None:
                 # 编码为JPEG
-                ret, img_encode = cv.imencode('.jpg', annotated_frame)
+                ret, img_encode = cv.imencode('.jpg', frame)
                 if ret:
                     img_bytes = img_encode.tobytes()
                     yield (b'--frame\r\n'
                            b'Content-Type: image/jpeg\r\n\r\n' + img_bytes + b'\r\n')
             else:
-                time.sleep(0.1)
+                # 如果还没有帧，等待一下
+                time.sleep(0.05)
+
+        logger.info("[VIDEO] Client disconnected from video feed")
 
     return Response(generate(),
                 mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -517,9 +569,11 @@ def video_feed():
 @app.route('/api/status')
 def get_status():
     """获取系统状态"""
+    logger.debug("[DEBUG] Status request received")
+    status = system_state.get()
     return jsonify({
         "success": True,
-        "data": system_state.get()
+        "data": status
     })
 
 
@@ -527,18 +581,25 @@ def get_status():
 def control_robot():
     """手动控制机器人"""
     from flask import request
+    logger.info("[DEBUG] Control request received")
     data = request.json
+    logger.info(f"[DEBUG] Request data: {data}")
     action = data.get('action')
+    logger.info(f"[DEBUG] Parsed action: {action}")
 
     if action == 'stop':
+        logger.info("[DEBUG] Executing STOP command")
         control_system.execute_motion("STOP")
-        logger.info("Web manual control: Stop")
+        logger.info("Web Manual Control: STOP")
     elif action in OrangeDetectControlSystem.MOTION_DESCRIPTIONS:
+        logger.info(f"[DEBUG] Executing motion command: {action}")
         control_system.execute_motion(action)
-        logger.info(f"Web manual control: {action}")
+        logger.info(f"Web Manual Control: {action}")
     else:
+        logger.warning(f"[DEBUG] Unknown command: {action}")
         return jsonify({"success": False, "message": "Unknown command"})
 
+    logger.info("[DEBUG] Command executed successfully")
     return jsonify({"success": True, "action": action})
 
 
@@ -604,7 +665,7 @@ def main():
             web_host = arg.split("=")[1]
 
     print("\n" + "="*60)
-    print("    Orange Detection - Rosmaster X3 Web Control")
+    print("    Orange Detection - Rosmaster X3 Web Control System")
     print("="*60)
     print(f"Web URL: http://{web_host}:{web_port}")
     print(f"Model: YOLO11n.pt")
@@ -624,6 +685,9 @@ def main():
         for i in range(2):
             control_system._OrangeDetectControlSystem__bot.set_beep(50)
             time.sleep(0.2)
+
+    # 启动视频处理线程 (重要！独立于Flask)
+    control_system.start_video_thread()
 
     # 启动 Web 服务器线程
     web_thread = threading.Thread(target=start_web_server,
