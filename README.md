@@ -4,6 +4,7 @@
 ## 项目简介
 
 这是一个基于YOLO手势识别的Rosmaster X3机器人控制系统，通过计算机视觉技术实现自然的人车交互。当前版本使用橙子检测进行功能验证，后续将替换为手势识别模块。
+全称为“Gesture-Based Human-Vehicle Interaction Control System”，简称为“GestureBot”。
 
 ## 核心功能
 
