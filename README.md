@@ -1,86 +1,117 @@
-# Gesture-Based Human-Vehicle Interaction Control System
-自适应手势识别的人车运动交互控制系统设计与实现
+# GestureBot - 自适应手势识别的人车运动交互控制系统
 
-## 项目简介
+**Gesture-Based Human-Vehicle Interaction Control System**
 
-这是一个基于YOLO手势识别的Rosmaster X3机器人控制系统，通过计算机视觉技术实现自然的人车交互。当前版本使用橙子检测进行功能验证，后续将替换为手势识别模块。
-全称为“Gesture-Based Human-Vehicle Interaction Control System”，简称为“GestureBot”。
+基于 YOLO11 的实时手势识别控制系统，通过摄像头捕获手势指令，驱动 Rosmaster X3 机器人完成前进、后退、转向等运动控制。
 
-## 核心功能
+## 系统概览
 
-| 模块 | 功能描述 | 开发状态 |
-|------|----------|----------|
-| **视觉检测** | 使用YOLO进行实时目标检测 | ✅ 已实现 |
-| **机器人控制** | Rosmaster X3七种运动模式控制 | ✅ 已实现 |
-| **Web界面** | 实时视频流和远程控制 | ✅ 已实现 |
-| **多线程架构** | 视频处理与Web服务并行 | ✅ 已实现 |
-| **手势识别** | 计划替换橙子检测 | 🔄 未来规划 |
+```
+摄像头 → YOLO11 手势检测 → 指令映射 → Rosmaster X3 运动
+              ↓
+         Web 实时监控界面 (Flask + MJPEG)
+```
 
-## 当前功能特点
+**核心流程**：USB 摄像头实时捕获画面 → YOLO11 推理识别 7 种手势 → 映射为运动指令 → 驱动机器人执行动作，同时通过 Web 界面提供实时视频流和手动控制。
 
-### 橙子检测模式（当前测试阶段）
-- **检测目标**: 橙子（COCO类别ID: 49）
-- **控制逻辑**: 检测到橙子→前进；连续15帧未检测→停止
-- **YOLO模型**: YOLO11n.pt（默认路径）
-- **置信度阈值**: 0.5（可调节）
+## 手势控制映射
 
-### 运动控制模式
-- **7种运动状态**:
-  - 0: 停止 (STOP)
-  - 1: 前进 (FORWARD)
-  - 2: 后退 (BACKWARD)
-  - 3: 左移 (LEFT)
-  - 4: 右移 (RIGHT)
-  - 5: 左旋转 (ROTATE_LEFT)
-  - 6: 右旋转 (ROTATE_RIGHT)
+系统支持 7 种手势，每种手势直接对应一种机器人运动状态：
+
+| 手势 | 运动指令 | 说明 |
+|------|---------|------|
+| ✊ forward | 前进 (FORWARD) | 向前直行 |
+| ✋ backward | 后退 (BACKWARD) | 向后直行 |
+| 👈 left | 左移 (LEFT) | 麦克纳姆轮横向移动 |
+| 👉 right | 右移 (RIGHT) | 麦克纳姆轮横向移动 |
+| 🔄 rotate_left | 左旋转 (ROTATE_LEFT) | 原地逆时针旋转 |
+| 🔁 rotate_right | 右旋转 (ROTATE_RIGHT) | 原地顺时针旋转 |
+| ✋ stop | 停止 (STOP) | 停止运动 |
+
+连续 15 帧未检测到有效手势时，自动执行停止指令，确保安全性。
 
 ## 系统架构
 
 ```
-GestureBot - Rosmaster X3 控制系统
-├── 视频处理线程
-│   ├── USB摄像头捕获 (640x480)
-│   ├── YOLO推理检测
-│   ├── 机器人控制指令
-│   └── 视觉反馈绘制
-├── Web服务器线程
-│   ├── Flask Web应用
-│   ├── Gevent异步处理
-│   └── MJPEG视频流
-└── 主线程
-    ├── 优雅关闭处理
-    └── 系统协调管理
-
-核心类结构:
-├── X3WheelController     # X3轮子控制器
-├── SystemState          # 线程安全状态管理
-├── OrangeDetectControlSystem # 检测控制系统
-└── SimpleLogger         # 内存日志记录器
+┌─────────────────────────────────────────────────┐
+│                   GestureBot                     │
+├──────────────┬──────────────┬────────────────────┤
+│  视频处理线程  │  Web服务器线程 │      主线程        │
+│              │              │                    │
+│ 摄像头捕获    │  Flask +     │  优雅关闭处理      │
+│ YOLO推理     │  Gevent      │  系统协调管理      │
+│ 指令映射      │  MJPEG流     │                    │
+│ 视觉反馈      │  REST API    │                    │
+└──────────────┴──────────────┴────────────────────┘
 ```
 
-## 技术栈
+**核心类**：
+- `GestureControlSystem` — 手势检测与运动控制系统
+- `X3WheelController` — Rosmaster X3 运动控制器（7 种运动模式）
+- `SystemState` — 线程安全的状态管理（锁机制保护共享数据）
+- `SimpleLogger` — 内存日志记录器
 
-- **Python 3.7+** - 主要编程语言
-- **Flask** - Web框架
-- **Gevent** - 异步处理
-- **OpenCV** - 图像处理
-- **Ultralytics YOLO** - 目标检测
-- **Rosmaster_Lib** - 机器人控制
-- **Threading** - 多线程支持
+## 模型训练
 
-## 支持的硬件平台
+### 数据集
 
-- ✅ **Rosmaster X3** - 当前测试平台
-- 🔄 Rosmaster X3PLUS - 计划支持
-- 🔄 R2/R2L系列 - 计划支持
+| 项目 | 数值 |
+|------|------|
+| 总图片数 | 1,549 张 |
+| 手势类别 | 7 类 |
+| 训练/验证/测试 | 70% / 20% / 10% |
+| 标注格式 | YOLO (txt) |
+| 图片尺寸 | 640×640 |
+
+### 基线模型（YOLO11n）
+
+| 指标 | 值 |
+|------|------|
+| 模型 | YOLO11n（从零训练） |
+| 训练平台 | Kaggle (2× Tesla T4) |
+| 训练轮次 | 175 (early stopping) |
+| Precision | 0.993 |
+| Recall | 1.000 |
+| mAP50 | **0.995** |
+| mAP50-95 | 0.733 |
+| 参数量 | 2.62M |
+
+### 模型改进：YOLO11n-ELA
+
+在 YOLO11n 的 Neck 特征融合层中引入 **ELA（Efficient Local Attention）** 注意力机制（CVPR 2024），通过 1D 空间卷积 + GroupNorm 捕获局部空间依赖，提升边界框定位精度。
+
+> 实验数据对比表（训练进行中，完成后补充）
+
+## Web 控制界面
+
+基于 Flask + Gevent 构建的实时监控与控制界面：
+
+- 实时 MJPEG 视频流显示
+- 手势识别结果实时展示（手势类别 → 运动指令 → 置信度）
+- 7 种运动模式手动控制按钮
+- 速度和置信度阈值滑块调节
+- 系统状态监控（FPS、置信度、检测次数、模型状态）
+- 手势对照表
+- 运行日志
+
+### API 接口
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/` | GET | 主控制界面 |
+| `/video_feed` | GET | MJPEG 实时视频流 |
+| `/api/status` | GET | 系统状态（JSON） |
+| `/api/control` | POST | 手动运动控制 |
+| `/api/settings` | POST/GET | 速度/阈值参数设置 |
+| `/api/logs` | GET | 运行日志 |
 
 ## 快速开始
 
 ### 环境要求
 
-```bash
-Python >= 3.7
-```
+- Python >= 3.8
+- CUDA 支持（推理加速）
+- Rosmaster X3 硬件（部署时）
 
 ### 安装依赖
 
@@ -95,92 +126,55 @@ pip install ultralytics flask gevent opencv-python Rosmaster_Lib
 python main.py
 
 # 带参数运行
-python main.py debug model=/path/to/model.pt speed=80 port=7000 host=192.168.1.100
+python main.py model=/path/to/best.pt speed=80 port=7000 host=192.168.1.100
 
-# Web界面访问
-# http://localhost:6500
+# 访问 Web 界面
+# http://<host>:6500
 ```
 
-### 数据集采集（未来手势识别）
+### 数据集采集
 
 ```bash
 # 采集手势视频
 python dataset/tools/collect_gesture_video.py
-# 按空格键开始/停止录制，按q键退出
+# 空格键：开始/停止录制 | q键：退出
 
-# 转换视频为训练图像
+# 视频转训练图片
 python dataset/tools/video_to_images.py
 ```
-
-## Web界面功能
-
-- **实时视频显示** - MJPEG视频流
-- **手动控制按钮** - 7种运动状态控制
-- **实时状态监控** - 帧率、置信度、检测结果
-- **参数调节** - 速度(0-100%)、置信度阈值(0.1-1.0)
-- **系统日志** - 实时日志显示
-
-### API接口
-
-- `GET /` - 主网页界面
-- `GET /video_feed` - MJPEG视频流
-- `GET /api/status` - JSON格式系统状态
-- `POST /api/control` - 手动控制指令
-- `POST/GET /api/settings` - 更新参数设置
-- `GET /api/logs` - 获取日志记录
-
-## 开发进度
-
-- [x] 项目架构重构
-- [x] 多线程视频处理
-- [x] YOLO检测集成
-- [x] Web界面开发
-- [x] 线程安全状态管理
-- [x] 参数配置系统
-- [x] 日志记录系统
-- [x] 橙子检测测试
-- [ ] 手势数据集采集
-- [ ] 手势模型训练
-- [ ] 手势识别集成
-- [ ] 系统优化测试
 
 ## 项目结构
 
 ```
-.
-├── main.py              # 主程序（重构完成）
-├── CLAUDE.md            # 项目文档
-├── README.md            # 项目说明
-├── .gitignore           # Git忽略文件
-├── requirements.txt     # 依赖列表
-├── templates/           # Web模板
-│   ├── test_orange.html      # 橙子检测界面
-│   └── gesture_control.html # 手势控制界面（预留）
-├── dataset/             # 数据集目录（已忽略）
-│   └── tools/               # 数据集工具
-├── original_images_ges/ # 手势数据集（已忽略）
-└── logs/               # 日志目录
+GestureBot/
+├── main.py                    # 主程序（手势识别控制系统）
+├── predict.py                 # 模型推理测试脚本
+├── templates/
+│   └── gesture_control.html   # Web 控制界面
+├── kaggle/
+│   ├── train.py               # Kaggle 训练脚本（YOLO11n-ELA）
+│   ├── config.yaml            # 训练超参数配置
+│   ├── model_pt_onnx_engine.py # 模型导出（PT→ONNX→TensorRT）
+│   └── 训练测试结果             # ELA 模型 3 轮验证输出
+├── training_analysis/         # 基线模型训练结果与分析报告
+├── ultralytics/               # YOLO11 框架（含 ELA 模块）
+│   └── nn/modules/ela.py      # ELA 注意力模块实现
+├── dataset/                   # 数据集工具
+│   └── tools/                 # 视频采集、帧提取工具
+└── CLAUDE.md                  # 项目技术文档
 ```
 
-## 代码亮点
+## 技术栈
 
-1. **多线程架构** - 视频处理与Web服务完全分离，避免阻塞
-2. **线程安全** - 使用threading.Lock保护共享状态
-3. **模块化设计** - 清晰的类分离和职责划分
-4. **实时视频流** - 高效的MJPEG视频传输
-5. **优雅关闭** - 完善的资源清理机制
-6. **配置灵活** - 支持命令行参数和Web界面调节
-
-## 注意事项
-
-1. 默认使用YOLO11n.pt模型，需确保模型文件存在
-2. 数据集目录已添加到.gitignore，不会被上传
-3. 首次运行需要初始化Rosmaster硬件连接
-4. 建议在独立网络环境中运行，避免延迟
-
-## 贡献指南
-
-欢迎提交Issue和Pull Request！
+| 类别 | 技术 |
+|------|------|
+| 目标检测 | Ultralytics YOLO11 |
+| 注意力机制 | ELA (CVPR 2024) |
+| Web 框架 | Flask + Gevent |
+| 图像处理 | OpenCV |
+| 机器人控制 | Rosmaster_Lib |
+| 模型部署 | TensorRT (Jetson) |
+| 训练平台 | Kaggle (2× Tesla T4) |
 
 ## 许可证
 
