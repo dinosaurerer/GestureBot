@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # coding=utf-8
-# 测试文件 - 使用 YOLO11n.pt 检测 orange 控制小车前进
-# 基于 YOLO 的人车运动交互控制系统 - 毕业设计测试版
+# 手势识别控制系统 - 使用 YOLO11n 检测手势控制小车运动
+# 基于 YOLO 的人车运动交互控制系统 - 毕业设计
 # 适配 Rosmaster X3 车型
 #
 # 架构说明:
@@ -128,19 +128,28 @@ class SystemState:
         self.__speed_percent = 70
         self.__model_loaded = False
         self.__total_detections = 0
-        self.__detection_target = "orange"
-        self.__orange_detected = False
+        self.__gesture_detected = False
+        self.__detected_class = ""
 
-    def update_orange_detected(self, detected, confidence=0.0):
-        """更新 orange 检测状态"""
+    def update_gesture(self, gesture_name, confidence=0.0):
+        """更新手势检测状态"""
         with self.__lock:
-            self.__orange_detected = detected
-            self.__confidence = confidence
-            if detected and confidence > 0.5:
-                self.__current_gesture = "FORWARD"
+            if gesture_name and gesture_name != "STOP" and confidence > 0.5:
+                self.__gesture_detected = True
+                self.__current_gesture = gesture_name
+                self.__confidence = confidence
+                self.__detected_class = gesture_name
                 self.__total_detections += 1
-            else:
+            elif gesture_name == "STOP" and confidence > 0.5:
+                self.__gesture_detected = True
                 self.__current_gesture = "STOP"
+                self.__confidence = confidence
+                self.__detected_class = "stop"
+            else:
+                self.__gesture_detected = False
+                self.__current_gesture = "STOP"
+                self.__confidence = 0.0
+                self.__detected_class = ""
 
     def update_fps(self, fps):
         with self.__lock:
@@ -165,8 +174,8 @@ class SystemState:
         with self.__lock:
             return {
                 "current_gesture": self.__current_gesture,
-                "detection_target": self.__detection_target,
-                "orange_detected": self.__orange_detected,
+                "detected_class": self.__detected_class,
+                "gesture_detected": self.__gesture_detected,
                 "confidence": round(self.__confidence, 2),
                 "fps": round(self.__fps, 1),
                 "motion_state": self.__motion_state,
@@ -181,27 +190,20 @@ class SystemState:
 system_state = SystemState()
 
 
-# ========== Orange 检测控制系统 ==========
-class OrangeDetectControlSystem:
-    """Orange 检测控制系统 - Rosmaster X3 适配版"""
+# ========== 手势识别控制系统 ==========
+class GestureControlSystem:
+    """手势识别控制系统 - Rosmaster X3 适配版"""
 
-    # YOLO11 模型的类别
-    # YOLO11n.pt 包含 80 个 COCO 类别
-    COCO_CLASSES = [
-        'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',
-        'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat',
-        'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack',
-        'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
-        'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
-        'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
-        'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake',
-        'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop',
-        'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink',
-        'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
-    ]
-
-    # orange 在 COCO 类别中的索引
-    ORANGE_CLASS_ID = 49  # 'orange' 在列表中的索引
+    # 手势类别 → 小车运动指令映射
+    GESTURE_TO_MOTION = {
+        "forward":      "FORWARD",
+        "backward":     "BACKWARD",
+        "left":         "LEFT",
+        "right":        "RIGHT",
+        "rotate_left":  "ROTATE_LEFT",
+        "rotate_right": "ROTATE_RIGHT",
+        "stop":         "STOP",
+    }
 
     MOTION_DESCRIPTIONS = {
         "STOP":        {"zh": "停止",       "desc": "Stop"},
@@ -318,20 +320,20 @@ class OrangeDetectControlSystem:
         self.__last_execute_time = time.time()
         return motion_info
 
-    def detect_orange(self, frame):
+    def detect_gesture(self, frame):
         """
-        检测 orange
+        检测手势
 
         Args:
             frame: 摄像头画面
 
         Returns:
-            detected: 是否检测到 orange
+            gesture_name: 检测到的手势类别名（如 "forward"），未检测到返回 None
             confidence: 置信度
             annotated_frame: 标注后的画面
         """
         if self.__model is None:
-            return False, 0.0, frame
+            return None, 0.0, frame
 
         try:
             # YOLO 推理
@@ -340,8 +342,8 @@ class OrangeDetectControlSystem:
             # 可视化检测结果
             annotated_frame = results[0].plot()
 
-            # 检查是否检测到 orange
-            detected = False
+            # 查找置信度最高的手势
+            best_gesture = None
             max_confidence = 0.0
 
             if len(results) > 0 and len(results[0].boxes) > 0:
@@ -349,22 +351,25 @@ class OrangeDetectControlSystem:
                 for box in boxes:
                     cls_id = int(box.cls[0])
                     conf = float(box.conf[0])
+                    class_name = self.__model.names[cls_id]
 
-                    # 检查是否是 orange 类别 (ID=49)
-                    if cls_id == self.ORANGE_CLASS_ID:
-                        detected = True
-                        if conf > max_confidence:
-                            max_confidence = conf
+                    # 过滤 background 类
+                    if class_name == "background":
+                        continue
 
-            return detected, max_confidence, annotated_frame
+                    if conf > max_confidence and class_name in self.GESTURE_TO_MOTION:
+                        max_confidence = conf
+                        best_gesture = class_name
+
+            return best_gesture, max_confidence, annotated_frame
 
         except Exception as e:
-            logger.error(f"Orange detection error: {e}")
-            return False, 0.0, frame
+            logger.error(f"Gesture detection error: {e}")
+            return None, 0.0, frame
 
     def process_frame(self, frame):
         """
-        处理单帧画面，检测 orange 并执行控制
+        处理单帧画面，检测手势并执行控制
 
         Args:
             frame: 输入画面
@@ -372,47 +377,48 @@ class OrangeDetectControlSystem:
         Returns:
             annotated_frame: 标注后的画面
         """
-        # 检测 orange
-        detected, confidence, annotated_frame = self.detect_orange(frame)
+        # 检测手势
+        gesture_name, confidence, annotated_frame = self.detect_gesture(frame)
 
         # 绘制系统标题
-        cv.putText(annotated_frame, "Orange Detection - Rosmaster X3 Control",
+        cv.putText(annotated_frame, "Gesture Control - Rosmaster X3",
                   (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
         current_time = time.time()
         time_since_last = current_time - self.__last_execute_time
 
-        if detected and confidence > self.__conf_threshold:
-            # 检测到 orange
-            self.__current_action = "FORWARD"
-            system_state.update_orange_detected(True, confidence)
+        if gesture_name and confidence > self.__conf_threshold:
+            # 检测到手势，映射为运动指令
+            motion_cmd = self.GESTURE_TO_MOTION.get(gesture_name, "STOP")
+            self.__current_action = motion_cmd
+            system_state.update_gesture(motion_cmd, confidence)
             self.__no_detect_count = 0
 
             if (self.__current_action != self.__last_action or
                 time_since_last >= self.__min_execute_interval):
-                self.execute_motion("FORWARD")
+                self.execute_motion(motion_cmd)
                 self.__last_action = self.__current_action
         else:
-            # 未检测到 orange
+            # 未检测到手势
             self.__no_detect_count += 1
             if self.__no_detect_count >= self.__max_no_detect:
-                # 连续多帧无检测，停止小车
                 if self.__current_action != "STOP":
                     self.execute_motion("STOP")
                     self.__current_action = "STOP"
                     self.__last_action = "STOP"
-                    system_state.update_orange_detected(False, 0)
+                    system_state.update_gesture(None, 0)
 
         # 绘制检测状态
-        if self.__current_action != "STOP":
-            status_text = f"Orange Detected! (Confidence: {confidence:.2f}) | Moving Forward..."
+        if self.__current_action != "STOP" and gesture_name:
+            motion_desc = self.MOTION_DESCRIPTIONS.get(self.__current_action, {})
+            zh_name = motion_desc.get("zh", "")
+            status_text = f"Gesture: {gesture_name} ({zh_name}) | Conf: {confidence:.2f}"
             status_color = (0, 255, 0)
-            # 绘制绿色边框表示检测
             cv.rectangle(annotated_frame, (5, 40),
                        (annotated_frame.shape[1] - 5, 75),
                        (0, 255, 0), 2)
         else:
-            status_text = "Waiting for Orange Detection..."
+            status_text = "Waiting for Gesture..."
             status_color = (0, 100, 255)
 
         cv.putText(annotated_frame, status_text,
@@ -536,7 +542,7 @@ control_system = None
 @app.route('/')
 def index():
     """主页面"""
-    return render_template('test_orange.html')
+    return render_template('gesture_control.html')
 
 
 @app.route('/video_feed')
@@ -545,7 +551,7 @@ def video_feed():
     def generate():
         logger.info("[VIDEO] Client connected to video feed")
 
-        while control_system and control_system._OrangeDetectControlSystem__running:
+        while control_system and control_system._GestureControlSystem__running:
             # 获取最新帧 (线程安全)
             frame = control_system.get_latest_frame()
 
@@ -591,7 +597,7 @@ def control_robot():
         logger.info("[DEBUG] Executing STOP command")
         control_system.execute_motion("STOP")
         logger.info("Web Manual Control: STOP")
-    elif action in OrangeDetectControlSystem.MOTION_DESCRIPTIONS:
+    elif action in GestureControlSystem.MOTION_DESCRIPTIONS:
         logger.info(f"[DEBUG] Executing motion command: {action}")
         control_system.execute_motion(action)
         logger.info(f"Web Manual Control: {action}")
@@ -645,8 +651,8 @@ def start_web_server(host='0.0.0.0', port=6500):
 def main():
     import sys
 
-    # 默认使用 YOLO11n.pt
-    model_path = "/home/jetson/ultralytics/ultralytics/yolo11n.pt"
+    # 默认使用手势识别模型
+    model_path = "/home/jetson/ultralytics/ultralytics/best.pt"
     speed_percent = 70
     debug = False
     web_host = '0.0.0.0'
@@ -665,25 +671,25 @@ def main():
             web_host = arg.split("=")[1]
 
     print("\n" + "="*60)
-    print("    Orange Detection - Rosmaster X3 Web Control System")
+    print("    Gesture Control - Rosmaster X3 Web Control System")
     print("="*60)
     print(f"Web URL: http://{web_host}:{web_port}")
-    print(f"Model: YOLO11n.pt")
-    print(f"Detection Target: Orange (Class ID: {OrangeDetectControlSystem.ORANGE_CLASS_ID})")
+    print(f"Model: {model_path}")
+    print(f"Detection Target: Hand Gesture (7 classes)")
     print(f"Speed: {speed_percent}%")
     print("="*60 + "\n")
 
     global control_system
-    control_system = OrangeDetectControlSystem(
+    control_system = GestureControlSystem(
         model_path=model_path,
         speed_percent=speed_percent,
         debug=debug
     )
 
     # 启动提示音
-    if control_system._OrangeDetectControlSystem__bot:
+    if control_system._GestureControlSystem__bot:
         for i in range(2):
-            control_system._OrangeDetectControlSystem__bot.set_beep(50)
+            control_system._GestureControlSystem__bot.set_beep(50)
             time.sleep(0.2)
 
     # 启动视频处理线程 (重要！独立于Flask)
