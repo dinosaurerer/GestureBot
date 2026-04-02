@@ -4,13 +4,15 @@
 
 基于 YOLO11 的实时手势识别控制系统，通过摄像头捕获手势指令，驱动 Rosmaster X3 机器人完成前进、后退、转向等运动控制。
 
+<p align="center">
+  <img src="./assets/GestureBot-seedream.png" alt="GestureBot Logo" width="600">
+</p>
+
 ## 系统概览
 
-```
-摄像头 → YOLO11 手势检测 → 指令映射 → Rosmaster X3 运动
-              ↓
-         Web 实时监控界面 (Flask + MJPEG)
-```
+<p align="center">
+  <img src="./assets/系统概览图.png" width="600">
+</p>
 
 **核心流程**：USB 摄像头实时捕获画面 → YOLO11 推理识别 7 种手势 → 映射为运动指令 → 驱动机器人执行动作，同时通过 Web 界面提供实时视频流和手动控制。
 
@@ -18,32 +20,27 @@
 
 系统支持 7 种手势，每种手势直接对应一种机器人运动状态：
 
+<p align="center">
+  <img src="./assets/手势对照表可视化.jfif" width="400">
+</p>
+
 | 手势 | 运动指令 | 说明 |
 |------|---------|------|
-| ✊ forward | 前进 (FORWARD) | 向前直行 |
-| ✋ backward | 后退 (BACKWARD) | 向后直行 |
-| 👈 left | 左移 (LEFT) | 麦克纳姆轮横向移动 |
-| 👉 right | 右移 (RIGHT) | 麦克纳姆轮横向移动 |
-| 🔄 rotate_left | 左旋转 (ROTATE_LEFT) | 原地逆时针旋转 |
-| 🔁 rotate_right | 右旋转 (ROTATE_RIGHT) | 原地顺时针旋转 |
-| ✋ stop | 停止 (STOP) | 停止运动 |
+|  forward | 前进 (FORWARD) | 向前直行 |
+|  backward | 后退 (BACKWARD) | 向后直行 |
+|  left | 左移 (LEFT) | 麦克纳姆轮横向移动 |
+|  right | 右移 (RIGHT) | 麦克纳姆轮横向移动 |
+|  rotate_left | 左旋转 (ROTATE_LEFT) | 原地逆时针旋转 |
+|  rotate_right | 右旋转 (ROTATE_RIGHT) | 原地顺时针旋转 |
+|  stop | 停止 (STOP) | 停止运动 |
 
 连续 15 帧未检测到有效手势时，自动执行停止指令，确保安全性。
 
 ## 系统架构
 
-```
-┌─────────────────────────────────────────────────┐
-│                   GestureBot                     │
-├──────────────┬──────────────┬────────────────────┤
-│  视频处理线程  │  Web服务器线程 │      主线程        │
-│              │              │                    │
-│ 摄像头捕获    │  Flask +     │  优雅关闭处理      │
-│ YOLO推理     │  Gevent      │  系统协调管理      │
-│ 指令映射      │  MJPEG流     │                    │
-│ 视觉反馈      │  REST API    │                    │
-└──────────────┴──────────────┴────────────────────┘
-```
+<p align="center">
+  <img src="./assets/系统架构图.png" width="700">
+</p>
 
 **核心类**：
 - `GestureControlSystem` — 手势检测与运动控制系统
@@ -55,13 +52,49 @@
 
 ### 数据集
 
-| 项目 | 数值 |
-|------|------|
-| 总图片数 | 1,549 张 |
-| 手势类别 | 7 类 |
-| 训练/验证/测试 | 70% / 20% / 10% |
-| 标注格式 | YOLO (txt) |
-| 图片尺寸 | 640×640 |
+
+
+<table border="0">
+  <tr>
+    <td width="35%" valign="top">
+      <h4>📑 样本分布</h4>
+      <ul>
+        <li><b>总计:</b> 1,549 Images</li>
+        <li><b>类别:</b> 7 Gestures</li>
+        <li><b>分辨率:</b> 640 × 640</li>
+      </ul>
+      <h4>📈 数据划分</h4>
+      <img src="https://img.shields.io/badge/Train-70%25-blue?style=flat-square" />
+      <img src="https://img.shields.io/badge/Val-20%25-green?style=flat-square" />
+      <img src="https://img.shields.io/badge/Test-10%25-orange?style=flat-square" />
+      <br><br>
+      <p align="left">
+        <i>采用 YOLO 格式标注，涵盖了不同光照和背景下的真实室内场景。</i>
+      </p>
+    </td>
+    <td width="65%" align="center">
+      <h4>📸 训练样本预览 (Training Samples)</h4>
+      <table border="0">
+        <tr>
+          <td><img src="./assets/ges-7/for.png" width="120" title="Forward" style="border-radius: 8px;"></td>
+          <td><img src="./assets/ges-7/back.png" width="120" title="Backward" style="border-radius: 8px;"></td>
+          <td><img src="./assets/ges-7/stop.png" width="120" title="Stop" style="border-radius: 8px;"></td>
+        </tr>
+        <tr>
+          <td><img src="./assets/ges-7/left.png" width="120" title="Left" style="border-radius: 8px;"></td>
+          <td><img src="./assets/ges-7/right.png" width="120" title="Right" style="border-radius: 8px;"></td>
+          <td><img src="./assets/ges-7/r-l.png" width="120" title="Rotate_Left" style="border-radius: 8px;"></td>
+        </tr>
+        <tr>
+          <td colspan="3" align="center">
+            <img src="./assets/ges-7/r-r.png" width="120" title="Rotate_Right" style="border-radius: 8px;">
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
 
 ### 基线模型（YOLO11n）
 
@@ -93,6 +126,8 @@
 - 系统状态监控（FPS、置信度、检测次数、模型状态）
 - 手势对照表
 - 运行日志
+
+
 
 ### API 接口
 
