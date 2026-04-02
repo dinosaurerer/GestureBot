@@ -1,0 +1,83 @@
+
+*****************************************
+!python -m torch.distributed.run --nproc_per_node 2 ./train.py
+
+Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+*****************************************
+WARNING ⚠️ no model scale passed. Assuming scale='n'.
+New https://pypi.org/project/ultralytics/8.4.33 available 😃 Update with 'pip install -U ultralytics'
+Ultralytics 8.3.55 🚀 Python-3.12.12 torch-2.10.0+cu128 CUDA:0 (Tesla T4, 14913MiB)
+                                                        CUDA:1 (Tesla T4, 14913MiB)
+Downloading https://ultralytics.com/assets/Arial.ttf to '/root/.config/Ultralytics/Arial.ttf'...
+100%|████████████████████████████████████████| 755k/755k [00:00<00:00, 5.58MB/s]
+100%|████████████████████████████████████████| 755k/755k [00:00<00:00, 4.90MB/s]
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1775107933.841010     137 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1775107933.887739     137 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1775107934.252951     137 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1775107934.252997     137 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1775107934.253002     137 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1775107934.253005     137 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+Overriding model.yaml nc=80 with nc=7
+WARNING ⚠️ no model scale passed. Assuming scale='n'.
+TensorBoard: Start with 'tensorboard --logdir runs/train/exp2', view at http://localhost:6006/
+Freezing layer 'model.26.dfl.conv.weight'
+AMP: running Automatic Mixed Precision (AMP) checks...
+Downloading https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt to 'yolo11n.pt'...
+100%|██████████████████████████████████████| 5.35M/5.35M [00:00<00:00, 22.6MB/s]
+AMP: checks passed ✅
+train: Scanning /kaggle/working/yolo11-ela-gesture-v1/ges_dataset/train/labels..
+train: New cache created: /kaggle/working/yolo11-ela-gesture-v1/ges_dataset/train/labels.cache
+WARNING ⚠️ cache='ram' may produce non-deterministic training results. Consider cache='disk' as a deterministic alternative if your disk space allows.
+train: Caching images (0.9GB RAM): 100%|██████████| 1034/1034 [00:03<00:00, 312.
+albumentations: Blur(p=0.01, blur_limit=(3, 7)), MedianBlur(p=0.01, blur_limit=(3, 7)), ToGray(p=0.01, method='weighted_average', num_output_channels=3), CLAHE(p=0.01, clip_limit=(1.0, 4.0), tile_grid_size=(8, 8))
+val: Scanning /kaggle/working/yolo11-ela-gesture-v1/ges_dataset/val/labels... 29
+val: New cache created: /kaggle/working/yolo11-ela-gesture-v1/ges_dataset/val/labels.cache
+WARNING ⚠️ cache='ram' may produce non-deterministic training results. Consider cache='disk' as a deterministic alternative if your disk space allows.
+val: Caching images (0.3GB RAM): 100%|██████████| 294/294 [00:02<00:00, 138.53it
+Plotting labels to runs/train/exp2/labels.jpg... 
+optimizer: 'optimizer=auto' found, ignoring 'lr0=0.01' and 'momentum=0.937' and determining best 'optimizer', 'lr0' and 'momentum' automatically... 
+optimizer: AdamW(lr=0.000714, momentum=0.9) with parameter groups 84 weight(decay=0.0), 94 weight(decay=0.0005), 96 bias(decay=0.0)
+TensorBoard: model graph visualization added ✅
+Image sizes 640 train, 640 val
+Using 4 dataloader workers
+Logging results to runs/train/exp2
+Starting training for 3 epochs...
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+  0%|          | 0/17 [00:00<?, ?it/s][rank0]:[W402 05:33:00.244111124 reducer.cpp:1500] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())
+[rank1]:[W402 05:33:00.631936432 reducer.cpp:1500] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())
+        1/3      5.55G      2.816      6.019      4.301          5        640: 1
+                 Class     Images  Instances      Box(P          R      mAP50  m
+                   all        294        293   0.000174     0.0772   0.000131   4.18e-05
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+        2/3      5.56G      2.664      5.884      4.126          5        640: 1
+                 Class     Images  Instances      Box(P          R      mAP50  m
+                   all        294        293   0.000274     0.0828   0.000186   5.89e-05
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+        3/3      5.77G      2.597      5.794      3.934          5        640: 1
+                 Class     Images  Instances      Box(P          R      mAP50  m
+                   all        294        293    0.00014     0.0646   0.000171   6.06e-05
+
+3 epochs completed in 0.016 hours.
+Optimizer stripped from runs/train/exp2/weights/last.pt, 12.5MB
+Optimizer stripped from runs/train/exp2/weights/best.pt, 12.5MB
+
+Validating runs/train/exp2/weights/best.pt...
+Ultralytics 8.3.55 🚀 Python-3.12.12 torch-2.10.0+cu128 CUDA:0 (Tesla T4, 14913MiB)
+                                                        CUDA:1 (Tesla T4, 14913MiB)
+YOLO11-ELA summary (fused): 253 layers, 6,084,829 parameters, 0 gradients
+                 Class     Images  Instances      Box(P          R      mAP50  m
+                   all        294        293    0.00014     0.0646   0.000186   4.67e-05
+               forward         43         43          0          0          0          0
+              backward         47         47   0.000128     0.0426     0.0006   9.98e-05
+                  left         53         53   5.77e-05     0.0189   3.73e-05   7.46e-06
+                 right         44         44          0          0          0          0
+           rotate_left         32         32   0.000168     0.0938   0.000121    2.1e-05
+          rotate_right         35         35   0.000288      0.143   0.000239   0.000133
+                  stop         39         39    0.00034      0.154   0.000301   6.62e-05
+Speed: 0.2ms preprocess, 2.3ms inference, 0.0ms loss, 2.3ms postprocess per image
+Results saved to runs/train/exp2
+[rank0]:[W402 05:34:01.943309586 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
