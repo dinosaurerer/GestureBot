@@ -20,21 +20,41 @@
 
 系统支持 7 种手势，每种手势直接对应一种机器人运动状态：
 
-<p align="center">
-  <img src="./assets/手势对照表可视化.jfif" width="400">
-</p>
 
-| 手势 | 运动指令 | 说明 |
-|------|---------|------|
-|  forward | 前进 (FORWARD) | 向前直行 |
-|  backward | 后退 (BACKWARD) | 向后直行 |
-|  left | 左移 (LEFT) | 麦克纳姆轮横向移动 |
-|  right | 右移 (RIGHT) | 麦克纳姆轮横向移动 |
-|  rotate_left | 左旋转 (ROTATE_LEFT) | 原地逆时针旋转 |
-|  rotate_right | 右旋转 (ROTATE_RIGHT) | 原地顺时针旋转 |
-|  stop | 停止 (STOP) | 停止运动 |
 
-连续 15 帧未检测到有效手势时，自动执行停止指令，确保安全性。
+<table border="0">
+  <tr>
+    <td align="center">
+      <img src="https://img.shields.io/badge/forward-前进-blue?style=flat-square" />
+      <img src="https://img.shields.io/badge/backward-后退-blue?style=flat-square" />
+      <img src="https://img.shields.io/badge/left-左移-green?style=flat-square" />
+      <img src="https://img.shields.io/badge/right-右移-green?style=flat-square" />
+      <img src="https://img.shields.io/badge/rotate__left-左旋转-orange?style=flat-square" />
+      <img src="https://img.shields.io/badge/rotate__right-右旋转-orange?style=flat-square" />
+      <img src="https://img.shields.io/badge/stop-停止-red?style=flat-square" />
+    </td>
+  </tr>
+</table>
+
+<table border="0">
+  <tr>
+    <td width="55%">
+      <img src="./assets/手势对照表可视化.jfif" width="100%" style="border-radius: 15px;">
+    </td>
+    <td width="45%" valign="middle">
+      <h4>指令集说明</h4>
+      <p>🔵 <b>纵向:</b> <code>forward</code> | <code>backward</code></p>
+      <p>🟢 <b>平移:</b> <code>left</code> | <code>right</code></p>
+      <p>🟠 <b>旋转:</b> <code>rotate_l</code> | <code>rotate_r</code></p>
+      <p>🔴 <b>状态:</b> <code>stop</code> (15帧失联保护)</p>
+      <hr>
+      <p><i>基于 YOLO11-ELA 识别推理</i></p>
+    </td>
+  </tr>
+</table>
+
+
+> 连续 15 帧未检测到有效手势时，自动执行停止指令，确保安全性。
 
 ## 系统架构
 
