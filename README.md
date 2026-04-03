@@ -22,19 +22,15 @@
 
 
 
-<table border="0">
-  <tr>
-    <td align="center">
-      <img src="https://img.shields.io/badge/forward-前进-blue?style=flat-square" />
-      <img src="https://img.shields.io/badge/backward-后退-blue?style=flat-square" />
-      <img src="https://img.shields.io/badge/left-左移-green?style=flat-square" />
-      <img src="https://img.shields.io/badge/right-右移-green?style=flat-square" />
-      <img src="https://img.shields.io/badge/rotate__left-左旋转-orange?style=flat-square" />
-      <img src="https://img.shields.io/badge/rotate__right-右旋转-orange?style=flat-square" />
-      <img src="https://img.shields.io/badge/stop-停止-red?style=flat-square" />
-    </td>
-  </tr>
-</table>
+<div align="center">
+  <img src="https://img.shields.io/badge/forward-前进-blue?style=flat-square" />
+  <img src="https://img.shields.io/badge/backward-后退-blue?style=flat-square" />
+  <img src="https://img.shields.io/badge/left-左移-green?style=flat-square" />
+  <img src="https://img.shields.io/badge/right-右移-green?style=flat-square" />
+  <img src="https://img.shields.io/badge/rotate__left-左旋转-orange?style=flat-square" />
+  <img src="https://img.shields.io/badge/rotate__right-右旋转-orange?style=flat-square" />
+  <img src="https://img.shields.io/badge/stop-停止-red?style=flat-square" />
+</div>
 
 <table border="0">
   <tr>
@@ -56,17 +52,40 @@
 
 > 连续 15 帧未检测到有效手势时，自动执行停止指令，确保安全性。
 
-## 系统架构
+
+
+
+## 🛠️ 系统架构 (System Architecture)
 
 <p align="center">
-  <img src="./assets/系统架构图.png" width="700">
+  <img src="./assets/系统架构图.png" width="800" alt="GestureBot Architecture">
 </p>
+<table border="0">
+  <tr>
+    <td width="65%" valign="top">
+      <h4>🧩 核心类实现 (Core Classes)</h4>
+      <ul>
+        <li><code>GestureControlSystem</code> — <b>决策中心</b><br/>
+          <small>驱动视频流线程，集成 YOLO11-ELA 推理引擎，下达高层运动指令。</small><br/><br/></li>  
+        <li><code>X3WheelController</code> — <b>执行驱动</b><br/>
+          <small>对接 Rosmaster X3 底盘，封装 7 种全向移动模式与安全刹车逻辑。</small><br/><br/></li>
+        <li><code>SystemState</code> — <b>状态管理</b><br/>
+          <small>维护全局变量，通过 <code>threading.Lock</code> 确保多线程读写的数据一致性。</small><br/><br/></li>
+        <li><code>SimpleLogger</code> — <b>日志系统</b><br/>
+          <small>轻量化内存缓冲区，支持实时追踪推理延迟与指令下发记录。</small><br/><br/></li>
+      </ul>
+      <blockquote style="font-size: 0.9em;">
+        <b>💡 设计解耦：</b> 这种模块化结构确保了 AI 算法与硬件控制器的完全分离，仅需更换 <code>X3WheelController</code> 即可适配不同底盘。
+      </blockquote>
+    </td>
+    <td width="35%" align="center" valign="middle">
+      <img src="./assets/mermaid-diagram-h.png" width="100%" alt="Class Diagram" style="box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 8px;">
+      <p align="center"><small><i>类关系依赖图</i></small></p>
+    </td>
+  </tr>
+</table>
 
-**核心类**：
-- `GestureControlSystem` — 手势检测与运动控制系统
-- `X3WheelController` — Rosmaster X3 运动控制器（7 种运动模式）
-- `SystemState` — 线程安全的状态管理（锁机制保护共享数据）
-- `SimpleLogger` — 内存日志记录器
+
 
 ## 模型训练
 
