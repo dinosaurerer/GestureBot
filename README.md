@@ -1,4 +1,4 @@
-# GestureBot - 自适应手势识别的人车运动交互控制系统
+# GestureBot - 基于手势识别的人车运动交互控制系统
 
 **Gesture-Based Human-Vehicle Interaction Control System**
 
