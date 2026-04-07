@@ -1,14 +1,14 @@
 task: detect
 mode: train
-model: yolo11n.yaml
+model: yolo11n-ELA.yaml
 data: GES.yaml
-epochs: 500
+epochs: 300
 time: null
 patience: 50
-batch: 128
+batch: 64
 imgsz: 640
 save: true
-save_period: 50
+save_period: 30
 cache: ram
 device:
 - 0
