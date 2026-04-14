@@ -112,7 +112,7 @@
       </p>
     </td>
     <td width="65%" align="center">
-      <h4>📸 训练样本预览 (Training Samples)</h4>
+      <h4>手势识别数据集样本示例（局部裁剪图）</h4>
       <table border="0">
         <tr>
           <td><img src="./assets/ges-7/for.png" width="120" title="Forward" style="border-radius: 8px;"></td>
