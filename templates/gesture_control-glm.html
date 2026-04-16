@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势识别控制 - Rosmaster X3</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+            border-radius: 6px;
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .header .badge {
+            display: inline-block;
+            background: #eef2ff;
+            color: #2c3e6b;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .header .connection-tag {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .header .connection-tag .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+
+        .header .connection-tag .dot.active {
+            background: #52c41a;
+        }
+
+        /* Layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+        }
+
+        /* Card */
+        .card {
+            background: #fff;
+            border-radius: 6px;
+            border: 1px solid #e8e8e8;
+        }
+
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            padding: 14px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title i {
+            color: #2c3e6b;
+            font-size: 0.9rem;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        /* Video */
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 4px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+        }
+
+        .video-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* Detection status bar */
+        .detection-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            margin-top: 16px;
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .detection-bar.detecting {
+            background: #eef6ff;
+            border-color: #b3d4f5;
+        }
+
+        .detection-bar .bar-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #bbb;
+            flex-shrink: 0;
+        }
+
+        .detection-bar.detecting .bar-dot {
+            background: #2c3e6b;
+            animation: pulse 2s infinite;
+        }
+
+        .detection-bar .bar-main {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .detection-bar.detecting .bar-main {
+            color: #2c3e6b;
+        }
+
+        .detection-bar .bar-sub {
+            color: #999;
+            font-size: 0.85rem;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Control buttons - directional pad layout */
+        .control-section {
+            margin-top: 16px;
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            max-width: 320px;
+            margin: 0 auto;
+        }
+
+        .control-btn {
+            padding: 12px 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            background: #fff;
+            color: #333;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.8rem;
+        }
+
+        .control-btn:hover {
+            border-color: #2c3e6b;
+            color: #2c3e6b;
+        }
+
+        .control-btn:active, .control-btn.active {
+            background: #2c3e6b;
+            border-color: #2c3e6b;
+            color: #fff;
+        }
+
+        .control-btn i {
+            font-size: 1.1rem;
+        }
+
+        .control-btn.stop-btn {
+            background: #fff1f0;
+            border-color: #ffa39e;
+            color: #cf1322;
+            grid-column: span 3;
+            flex-direction: row;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        .control-btn.stop-btn:hover {
+            background: #ff4d4f;
+            border-color: #ff4d4f;
+            color: #fff;
+        }
+
+        .control-btn.stop-btn:active {
+            background: #cf1322;
+            border-color: #cf1322;
+            color: #fff;
+        }
+
+        .control-spacer {
+            /* empty grid cell */
+        }
+
+        /* Settings */
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+
+        .setting-label {
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider {
+            width: 120px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #e0e0e0;
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #2c3e6b;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .slider-value {
+            min-width: 40px;
+            text-align: right;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #2c3e6b;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .stat-item {
+            background: #fafafa;
+            padding: 14px;
+            border-radius: 4px;
+            text-align: center;
+            border: 1px solid #f0f0f0;
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        /* Gesture table */
+        .gesture-table {
+            width: 100%;
+            font-size: 0.85rem;
+        }
+
+        .gesture-table-row {
+            display: flex;
+            align-items: center;
+            padding: 7px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .gesture-table-row:last-child {
+            border-bottom: none;
+        }
+
+        .gesture-table-row .g-name {
+            width: 110px;
+            color: #666;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 0.8rem;
+        }
+
+        .gesture-table-row .g-arrow {
+            color: #ccc;
+            margin: 0 8px;
+        }
+
+        .gesture-table-row .g-action {
+            color: #2c3e6b;
+            font-weight: 500;
+        }
+
+        /* Logs */
+        .logs-container {
+            max-height: 180px;
+            overflow-y: auto;
+            background: #fafafa;
+            border: 1px solid #f0f0f0;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 0.8rem;
+        }
+
+        .log-item {
+            padding: 4px 0;
+            border-bottom: 1px solid #f5f5f5;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .log-item:last-child {
+            border-bottom: none;
+        }
+
+        .log-time {
+            color: #bbb;
+            flex-shrink: 0;
+        }
+
+        .log-level {
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+
+        .log-level.INFO {
+            background: #f0f9eb;
+            color: #67c23a;
+        }
+
+        .log-level.WARNING {
+            background: #fdf6ec;
+            color: #e6a23c;
+        }
+
+        .log-level.ERROR {
+            background: #fef0f0;
+            color: #f56c6c;
+        }
+
+        .log-msg {
+            color: #666;
+        }
+
+        /* Info section */
+        .info-list {
+            font-size: 0.85rem;
+            color: #555;
+            line-height: 2;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .control-grid {
+                max-width: 100%;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>GestureBot <span class="badge">YOLO11</span></h1>
+            <div class="connection-tag">
+                <span class="dot" id="statusDot"></span>
+                <span id="connectionStatus">Connecting...</span>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <!-- Left: Video + Controls -->
+            <div>
+                <div class="card">
+                    <div class="card-title"><i class="fas fa-video"></i> Real-time Detection</div>
+                    <div class="card-body">
+                        <div class="video-container">
+                            <img src="/video_feed" alt="Video Stream" id="videoStream">
+                        </div>
+                        <div class="detection-bar" id="detectionStatus">
+                            <span class="bar-dot"></span>
+                            <span class="bar-main" id="detectionText">Waiting for gesture...</span>
+                            <span class="bar-sub" id="detectionSubtext"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 16px;">
+                    <div class="card-title"><i class="fas fa-gamepad"></i> Manual Control</div>
+                    <div class="card-body">
+                        <div class="control-grid">
+                            <div class="control-spacer"></div>
+                            <button class="control-btn" data-action="FORWARD">
+                                <i class="fas fa-arrow-up"></i><span>Forward</span>
+                            </button>
+                            <div class="control-spacer"></div>
+                            <button class="control-btn" data-action="LEFT">
+                                <i class="fas fa-arrow-left"></i><span>Left</span>
+                            </button>
+                            <button class="control-btn" data-action="STOP" style="background:#fafafa; color:#999;">
+                                <i class="fas fa-stop"></i><span>Stop</span>
+                            </button>
+                            <button class="control-btn" data-action="RIGHT">
+                                <i class="fas fa-arrow-right"></i><span>Right</span>
+                            </button>
+                            <button class="control-btn" data-action="ROTATE_LEFT">
+                                <i class="fas fa-undo"></i><span>Rot L</span>
+                            </button>
+                            <button class="control-btn" data-action="BACKWARD">
+                                <i class="fas fa-arrow-down"></i><span>Backward</span>
+                            </button>
+                            <button class="control-btn" data-action="ROTATE_RIGHT">
+                                <i class="fas fa-redo"></i><span>Rot R</span>
+                            </button>
+                        </div>
+                        <button class="control-btn stop-btn" data-action="stop">
+                            <i class="fas fa-power-off"></i> Emergency Stop
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Status + Settings -->
+            <div>
+                <div class="card">
+                    <div class="card-title"><i class="fas fa-sliders-h"></i> Settings</div>
+                    <div class="card-body">
+                        <div class="setting-row">
+                            <span class="setting-label">Speed</span>
+                            <div class="slider-group">
+                                <input type="range" class="slider" id="speedSlider" min="0" max="100" value="70">
+                                <span class="slider-value" id="speedValue">70%</span>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Confidence</span>
+                            <div class="slider-group">
+                                <input type="range" class="slider" id="thresholdSlider" min="10" max="100" value="50">
+                                <span class="slider-value" id="thresholdValue">0.50</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 16px;">
+                    <div class="card-title"><i class="fas fa-chart-bar"></i> Status</div>
+                    <div class="card-body">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-value" id="fpsValue">0</div>
+                                <div class="stat-label">FPS</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="confidenceValue">0.00</div>
+                                <div class="stat-label">Confidence</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="totalDetections">0</div>
+                                <div class="stat-label">Detections</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="modelStatus">-</div>
+                                <div class="stat-label">Model</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 16px;">
+                    <div class="card-title"><i class="fas fa-hand-paper"></i> Gesture Map</div>
+                    <div class="card-body">
+                        <div class="gesture-table">
+                            <div class="gesture-table-row"><span class="g-name">forward</span><span class="g-arrow">→</span><span class="g-action">Forward</span></div>
+                            <div class="gesture-table-row"><span class="g-name">backward</span><span class="g-arrow">→</span><span class="g-action">Backward</span></div>
+                            <div class="gesture-table-row"><span class="g-name">left</span><span class="g-arrow">→</span><span class="g-action">Left</span></div>
+                            <div class="gesture-table-row"><span class="g-name">right</span><span class="g-arrow">→</span><span class="g-action">Right</span></div>
+                            <div class="gesture-table-row"><span class="g-name">rotate_left</span><span class="g-arrow">→</span><span class="g-action">Rotate Left</span></div>
+                            <div class="gesture-table-row"><span class="g-name">rotate_right</span><span class="g-arrow">→</span><span class="g-action">Rotate Right</span></div>
+                            <div class="gesture-table-row"><span class="g-name">stop</span><span class="g-arrow">→</span><span class="g-action">Stop</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 16px;">
+                    <div class="card-title"><i class="fas fa-list"></i> Logs</div>
+                    <div class="card-body" style="padding: 0 12px 12px;">
+                        <div class="logs-container" id="logsContainer">
+                            <div class="log-item">Waiting for system...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var currentAction = 'STOP';
+        var updateInterval = null;
+        var videoConnected = false;
+        var connectionCheckInterval = null;
+        var localLogs = [];
+
+        var GESTURE_NAMES = {
+            'FORWARD': 'Forward',
+            'BACKWARD': 'Backward',
+            'LEFT': 'Left',
+            'RIGHT': 'Right',
+            'ROTATE_LEFT': 'Rotate Left',
+            'ROTATE_RIGHT': 'Rotate Right',
+            'STOP': 'Stop'
+        };
+
+        function addLog(level, message) {
+            var now = new Date();
+            var timestamp = now.getHours().toString().padStart(2, '0') + ':' +
+                             now.getMinutes().toString().padStart(2, '0') + ':' +
+                             now.getSeconds().toString().padStart(2, '0');
+            localLogs.push({ time: timestamp, level: level, message: message });
+            if (localLogs.length > 50) localLogs.shift();
+            updateLogsUI();
+        }
+
+        function updateLogsUI() {
+            var container = document.getElementById('logsContainer');
+            container.innerHTML = '';
+            for (var i = localLogs.length - 1; i >= 0; i--) {
+                var log = localLogs[i];
+                var div = document.createElement('div');
+                div.className = 'log-item';
+                div.innerHTML = '<span class="log-time">' + log.time + '</span>' +
+                    '<span class="log-level ' + log.level + '">' + log.level + '</span>' +
+                    '<span class="log-msg">' + log.message + '</span>';
+                container.appendChild(div);
+            }
+        }
+
+        var videoStream = document.getElementById('videoStream');
+        var statusDot = document.getElementById('statusDot');
+        var connectionStatus = document.getElementById('connectionStatus');
+
+        function checkVideoConnection() {
+            if (videoStream.complete && videoStream.naturalHeight !== 0) {
+                if (!videoConnected) {
+                    videoConnected = true;
+                    statusDot.className = 'dot active';
+                    connectionStatus.textContent = 'Connected';
+                    addLog('INFO', 'Video stream connected');
+                }
+            } else {
+                if (videoConnected) {
+                    videoConnected = false;
+                    statusDot.className = 'dot';
+                    connectionStatus.textContent = 'Disconnected';
+                    addLog('WARNING', 'Video stream disconnected');
+                }
+            }
+        }
+
+        videoStream.onload = checkVideoConnection;
+        videoStream.onerror = function() {
+            if (videoConnected) {
+                videoConnected = false;
+                statusDot.className = 'dot';
+                connectionStatus.textContent = 'Connection Failed';
+                addLog('ERROR', 'Video stream connection failed');
+            }
+        };
+
+        async function updateStatus() {
+            try {
+                var response = await fetch('/api/status');
+                var result = await response.json();
+                if (result.success) {
+                    var data = result.data;
+                    var detecting = data.gesture_detected && data.confidence > 0.5;
+                    updateDetectionUI(detecting, data);
+
+                    document.getElementById('fpsValue').textContent = data.fps.toFixed(1);
+                    document.getElementById('confidenceValue').textContent = data.confidence.toFixed(2);
+                    document.getElementById('totalDetections').textContent = data.total_detections;
+
+                    var modelEl = document.getElementById('modelStatus');
+                    modelEl.textContent = data.model_loaded ? 'Loaded' : '--';
+                    modelEl.style.color = data.model_loaded ? '#52c41a' : '#999';
+
+                    document.getElementById('speedSlider').value = data.speed_percent;
+                    document.getElementById('speedValue').textContent = data.speed_percent + '%';
+
+                    currentAction = data.current_gesture;
+                }
+            } catch (error) {
+                console.error('Status update failed:', error);
+                if (videoConnected) {
+                    videoConnected = false;
+                    statusDot.className = 'dot';
+                    connectionStatus.textContent = 'Backend Offline';
+                }
+            }
+        }
+
+        function updateDetectionUI(detecting, data) {
+            var bar = document.getElementById('detectionStatus');
+            var textDiv = document.getElementById('detectionText');
+            var subDiv = document.getElementById('detectionSubtext');
+
+            if (detecting) {
+                var gestureClass = data.detected_class || '';
+                var motionName = GESTURE_NAMES[data.current_gesture] || data.current_gesture;
+                bar.className = 'detection-bar detecting';
+                textDiv.textContent = gestureClass + '  →  ' + motionName;
+                subDiv.textContent = data.confidence.toFixed(2);
+            } else {
+                bar.className = 'detection-bar';
+                textDiv.textContent = 'Waiting for gesture...';
+                subDiv.textContent = '';
+            }
+        }
+
+        async function updateLogs() {
+            try {
+                var response = await fetch('/api/logs');
+                var result = await response.json();
+                if (result.success) {
+                    var container = document.getElementById('logsContainer');
+                    container.innerHTML = '';
+                    for (var i = result.data.length - 1; i >= 0; i--) {
+                        var log = result.data[i];
+                        var div = document.createElement('div');
+                        div.className = 'log-item';
+                        div.innerHTML = '<span class="log-time">' + log.time + '</span>' +
+                            '<span class="log-level ' + log.level + '">' + log.level + '</span>' +
+                            '<span class="log-msg">' + log.message + '</span>';
+                        container.appendChild(div);
+                    }
+                }
+            } catch (error) {
+                console.error('Logs update failed:', error);
+            }
+        }
+
+        var controlButtons = document.querySelectorAll('.control-btn[data-action]');
+        for (var i = 0; i < controlButtons.length; i++) {
+            (function(btn) {
+                btn.addEventListener('click', async function() {
+                    var action = btn.dataset.action;
+                    addLog('INFO', 'Send: ' + action);
+                    try {
+                        var response = await fetch('/api/control', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: action })
+                        });
+                        var result = await response.json();
+                        if (result.success) {
+                            addLog('INFO', 'Done: ' + action);
+                            btn.classList.add('active');
+                            setTimeout(function() { btn.classList.remove('active'); }, 200);
+                        } else {
+                            addLog('ERROR', 'Failed: ' + (result.message || ''));
+                        }
+                    } catch (error) {
+                        addLog('ERROR', 'Error: ' + error.message);
+                    }
+                });
+            })(controlButtons[i]);
+        }
+
+        document.getElementById('speedSlider').addEventListener('input', function() {
+            document.getElementById('speedValue').textContent = this.value + '%';
+        });
+
+        document.getElementById('speedSlider').addEventListener('change', async function() {
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ speed: parseInt(this.value) })
+            });
+            addLog('INFO', 'Speed: ' + this.value + '%');
+        });
+
+        document.getElementById('thresholdSlider').addEventListener('input', function() {
+            document.getElementById('thresholdValue').textContent = (this.value / 100).toFixed(2);
+        });
+
+        document.getElementById('thresholdSlider').addEventListener('change', async function() {
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ threshold: this.value / 100 })
+            });
+            addLog('INFO', 'Confidence: ' + (this.value / 100).toFixed(2));
+        });
+
+        window.addEventListener('load', function() {
+            addLog('INFO', 'Page loaded, connecting...');
+            updateStatus();
+            updateLogs();
+            updateInterval = setInterval(function() {
+                updateStatus();
+                updateLogs();
+            }, 10000);
+            setTimeout(checkVideoConnection, 500);
+            connectionCheckInterval = setInterval(checkVideoConnection, 20000);
+        });
+
+        window.addEventListener('beforeunload', function() {
+            if (updateInterval) clearInterval(updateInterval);
+            if (connectionCheckInterval) clearInterval(connectionCheckInterval);
+        });
+    </script>
+</body>
+</html>

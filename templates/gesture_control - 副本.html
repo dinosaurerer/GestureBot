@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势识别控制 - Rosmaster X3</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #0f3460;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            color: #00d4ff;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+
+        .header .badge {
+            display: inline-block;
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-left: 10px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: rgba(15, 52, 96, 0.6);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            color: #00d4ff;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            border: 3px solid #00d4ff;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+        }
+
+        .video-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .status-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.active {
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+
+        .status-indicator.inactive {
+            background: #ff4444;
+        }
+
+        .status-indicator.detecting {
+            background: #00d4ff;
+            box-shadow: 0 0 10px #00d4ff;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .detection-status {
+            text-align: center;
+            padding: 25px;
+            margin: 20px 0;
+            border-radius: 15px;
+            transition: all 0.3s;
+        }
+
+        .detection-status.detecting {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.3) 0%, rgba(0, 100, 255, 0.3) 100%);
+            border: 2px solid #00d4ff;
+            animation: border-pulse 1.5s infinite;
+        }
+
+        .detection-status.waiting {
+            background: rgba(15, 52, 96, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        @keyframes border-pulse {
+            0%, 100% { border-color: #00d4ff; }
+            50% { border-color: #0088cc; }
+        }
+
+        .detection-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .detection-icon.detecting {
+            color: #00d4ff;
+            animation: bounce 1s infinite;
+        }
+
+        .detection-icon.waiting {
+            color: #666;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .detection-text {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .detection-text.detecting {
+            color: #00d4ff;
+        }
+
+        .detection-text.waiting {
+            color: #999;
+        }
+
+        .detection-subtext {
+            font-size: 1rem;
+            color: #aaa;
+        }
+
+        .control-panel {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .control-btn {
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .control-btn.active {
+            background: linear-gradient(135deg, #00d4ff 0%, #0088cc 100%);
+            color: #000;
+        }
+
+        .control-btn i {
+            font-size: 1.5rem;
+        }
+
+        .settings-section {
+            margin: 20px 0;
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .setting-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .setting-label i {
+            color: #00d4ff;
+            width: 20px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .slider {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #0f3460;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #00d4ff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .slider-value {
+            min-width: 50px;
+            text-align: right;
+            color: #00d4ff;
+            font-weight: bold;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: rgba(0, 212, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-top: 5px;
+        }
+
+        .gesture-legend {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .gesture-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        .gesture-item .gesture-icon {
+            font-size: 1rem;
+            color: #00d4ff;
+            width: 20px;
+            text-align: center;
+        }
+
+        .gesture-item .gesture-arrow {
+            color: #666;
+            margin: 0 2px;
+        }
+
+        .gesture-item .gesture-action {
+            color: #00d4ff;
+            font-weight: bold;
+        }
+
+        .logs-container {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 10px;
+            margin: 15px 0;
+        }
+
+        .log-item {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.85rem;
+        }
+
+        .log-time {
+            color: #666;
+            margin-right: 10px;
+        }
+
+        .log-level {
+            margin-right: 10px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        .log-level.INFO {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+
+        .log-level.WARNING {
+            background: rgba(255, 200, 0, 0.2);
+            color: #ffc800;
+        }
+
+        .log-level.ERROR {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .control-panel {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .gesture-legend {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-hand-paper"></i> 手势识别控制 - Rosmaster X3 <span class="badge">YOLO11</span></h1>
+        </div>
+
+        <div class="main-grid">
+            <!-- 左侧：视频流和控制 -->
+            <div class="left-panel">
+                <div class="card">
+                    <div class="card-title">
+                        <i class="fas fa-video"></i> 实时检测画面
+                    </div>
+                    <div class="video-container">
+                        <img src="/video_feed" alt="Video Stream" id="videoStream">
+                        <div class="status-overlay">
+                            <span class="status-indicator inactive" id="statusIndicator"></span>
+                            <span id="connectionStatus">连接中...</span>
+                        </div>
+                    </div>
+
+                    <div class="detection-status waiting" id="detectionStatus">
+                        <div class="detection-icon waiting" id="detectionIcon">
+                            <i class="fas fa-hand-paper"></i>
+                        </div>
+                        <div class="detection-text waiting" id="detectionText">等待手势识别...</div>
+                        <div class="detection-subtext" id="detectionSubtext">请对摄像头做出手势</div>
+                    </div>
+
+                    <div class="card-title" style="margin-top: 20px;">
+                        <i class="fas fa-gamepad"></i> 手动控制
+                    </div>
+                    <div class="control-panel">
+                        <button class="control-btn" data-action="FORWARD">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>前进</span>
+                        </button>
+                        <button class="control-btn" data-action="LEFT">
+                            <i class="fas fa-arrow-left"></i>
+                            <span>左移</span>
+                        </button>
+                        <button class="control-btn" data-action="RIGHT">
+                            <i class="fas fa-arrow-right"></i>
+                            <span>右移</span>
+                        </button>
+                        <button class="control-btn" data-action="BACKWARD">
+                            <i class="fas fa-arrow-down"></i>
+                            <span>后退</span>
+                        </button>
+                        <button class="control-btn" data-action="ROTATE_LEFT">
+                            <i class="fas fa-undo"></i>
+                            <span>左旋转</span>
+                        </button>
+                        <button class="control-btn" data-action="ROTATE_RIGHT">
+                            <i class="fas fa-redo"></i>
+                            <span>右旋转</span>
+                        </button>
+                    </div>
+                    <button class="control-btn" style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);" data-action="stop">
+                        <i class="fas fa-stop"></i>
+                        <span>停止</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右侧：状态和设置 -->
+            <div class="right-panel">
+                <div class="card">
+                    <div class="card-title">
+                        <i class="fas fa-sliders-h"></i> 参数设置
+                    </div>
+                    <div class="settings-section">
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <i class="fas fa-tachometer-alt"></i>
+                                <span>速度</span>
+                            </div>
+                            <div class="slider-container">
+                                <input type="range" class="slider" id="speedSlider" min="0" max="100" value="70">
+                                <span class="slider-value" id="speedValue">70%</span>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <i class="fas fa-crosshairs"></i>
+                                <span>置信度阈值</span>
+                            </div>
+                            <div class="slider-container">
+                                <input type="range" class="slider" id="thresholdSlider" min="10" max="100" value="50">
+                                <span class="slider-value" id="thresholdValue">0.50</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-title">
+                        <i class="fas fa-chart-bar"></i> 系统状态
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="fpsValue">0</div>
+                            <div class="stat-label">FPS</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="confidenceValue">0.00</div>
+                            <div class="stat-label">置信度</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalDetections">0</div>
+                            <div class="stat-label">检测次数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="modelStatus">-</div>
+                            <div class="stat-label">模型状态</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-title">
+                        <i class="fas fa-hand-sparkles"></i> 手势对照表
+                    </div>
+                    <div style="padding: 10px; background: rgba(0, 212, 255, 0.05); border-radius: 10px;">
+                        <div class="gesture-legend">
+                            <div class="gesture-item">
+                                <span class="gesture-icon"><i class="fas fa-hand-point-up"></i></span>
+                                <span>forward</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">前进</span>
+                            </div>
+                            <div class="gesture-item">
+                                <span class="gesture-icon"><i class="fas fa-hand-point-down"></i></span>
+                                <span>backward</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">后退</span>
+                            </div>
+                            <div class="gesture-item">
+                                <span class="gesture-icon"><i class="fas fa-hand-point-left"></i></span>
+                                <span>left</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">左移</span>
+                            </div>
+                            <div class="gesture-item">
+                                <span class="gesture-icon"><i class="fas fa-hand-point-right"></i></span>
+                                <span>right</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">右移</span>
+                            </div>
+                            <div class="gesture-item">
+                                <span class="gesture-icon"><i class="fas fa-undo"></i></span>
+                                <span>rotate_left</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">左旋转</span>
+                            </div>
+                            <div class="gesture-item">
+                                <span class="gesture-icon"><i class="fas fa-redo"></i></span>
+                                <span>rotate_right</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">右旋转</span>
+                            </div>
+                            <div class="gesture-item" style="grid-column: span 2; justify-content: center;">
+                                <span class="gesture-icon"><i class="fas fa-hand-paper"></i></span>
+                                <span>stop</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">停止</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-title">
+                        <i class="fas fa-info-circle"></i> 系统说明
+                    </div>
+                    <div style="padding: 15px; background: rgba(0, 212, 255, 0.1); border-radius: 10px; font-size: 0.9rem;">
+                        <p style="margin-bottom: 10px;"><i class="fas fa-brain" style="color: #00d4ff;"></i> <strong>模型:</strong> YOLO11n 手势识别</p>
+                        <p style="margin-bottom: 10px;"><i class="fas fa-layer-group" style="color: #00d4ff;"></i> <strong>类别:</strong> 7 种手势 + 背景</p>
+                        <p><i class="fas fa-cogs" style="color: #00d4ff;"></i> <strong>控制:</strong> 手势 → 对应运动指令，连续15帧未检测到则停止</p>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-title">
+                        <i class="fas fa-list"></i> 运行日志
+                    </div>
+                    <div class="logs-container" id="logsContainer">
+                        <div class="log-item">等待系统启动...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var currentAction = 'STOP';
+        var updateInterval = null;
+        var videoConnected = false;
+        var connectionCheckInterval = null;
+        var localLogs = [];
+
+        var GESTURE_NAMES = {
+            'FORWARD': '前进',
+            'BACKWARD': '后退',
+            'LEFT': '左移',
+            'RIGHT': '右移',
+            'ROTATE_LEFT': '左旋转',
+            'ROTATE_RIGHT': '右旋转',
+            'STOP': '停止'
+        };
+
+        function addLog(level, message) {
+            var now = new Date();
+            var timestamp = now.getHours().toString().padStart(2, '0') + ':' +
+                             now.getMinutes().toString().padStart(2, '0') + ':' +
+                             now.getSeconds().toString().padStart(2, '0');
+            localLogs.push({ time: timestamp, level: level, message: message });
+            if (localLogs.length > 50) localLogs.shift();
+            updateLogsUI();
+        }
+
+        function updateLogsUI() {
+            var container = document.getElementById('logsContainer');
+            container.innerHTML = '';
+            for (var i = localLogs.length - 1; i >= 0; i--) {
+                var log = localLogs[i];
+                var div = document.createElement('div');
+                div.className = 'log-item';
+                div.innerHTML = '<span class="log-time">' + log.time + '</span>' +
+                    '<span class="log-level ' + log.level + '">' + log.level + '</span>' +
+                    '<span>' + log.message + '</span>';
+                container.appendChild(div);
+            }
+        }
+
+        var videoStream = document.getElementById('videoStream');
+        var statusIndicator = document.getElementById('statusIndicator');
+        var connectionStatus = document.getElementById('connectionStatus');
+
+        function checkVideoConnection() {
+            if (videoStream.complete && videoStream.naturalHeight !== 0) {
+                if (!videoConnected) {
+                    videoConnected = true;
+                    statusIndicator.className = 'status-indicator active';
+                    connectionStatus.textContent = 'Connected';
+                    addLog('INFO', '视频流已连接');
+                }
+            } else {
+                if (videoConnected) {
+                    videoConnected = false;
+                    statusIndicator.className = 'status-indicator inactive';
+                    connectionStatus.textContent = 'Connecting...';
+                    addLog('WARNING', '视频流已断开');
+                }
+            }
+        }
+
+        videoStream.onload = checkVideoConnection;
+        videoStream.onerror = function() {
+            if (videoConnected) {
+                videoConnected = false;
+                statusIndicator.className = 'status-indicator inactive';
+                connectionStatus.textContent = 'Connection Failed';
+                addLog('ERROR', '视频流连接失败');
+            }
+        };
+
+        async function updateStatus() {
+            try {
+                var response = await fetch('/api/status');
+                var result = await response.json();
+                if (result.success) {
+                    var data = result.data;
+                    var detecting = data.gesture_detected && data.confidence > 0.5;
+                    updateDetectionUI(detecting, data);
+
+                    document.getElementById('fpsValue').textContent = data.fps.toFixed(1);
+                    document.getElementById('confidenceValue').textContent = data.confidence.toFixed(2);
+                    document.getElementById('totalDetections').textContent = data.total_detections;
+
+                    var modelEl = document.getElementById('modelStatus');
+                    modelEl.textContent = data.model_loaded ? '已加载' : '未加载';
+                    modelEl.style.color = data.model_loaded ? '#00d4ff' : '#ff4444';
+
+                    document.getElementById('speedSlider').value = data.speed_percent;
+                    document.getElementById('speedValue').textContent = data.speed_percent + '%';
+
+                    currentAction = data.current_gesture;
+                }
+            } catch (error) {
+                console.error('状态更新失败:', error);
+                if (videoConnected) {
+                    videoConnected = false;
+                    statusIndicator.className = 'status-indicator inactive';
+                    connectionStatus.textContent = '后端未运行';
+                }
+            }
+        }
+
+        function updateDetectionUI(detecting, data) {
+            var statusDiv = document.getElementById('detectionStatus');
+            var iconDiv = document.getElementById('detectionIcon');
+            var textDiv = document.getElementById('detectionText');
+            var subtextDiv = document.getElementById('detectionSubtext');
+
+            if (detecting) {
+                var gestureClass = data.detected_class || '';
+                var motionName = GESTURE_NAMES[data.current_gesture] || data.current_gesture;
+                statusDiv.className = 'detection-status detecting';
+                iconDiv.className = 'detection-icon detecting';
+                iconDiv.innerHTML = '<i class="fas fa-hand-paper"></i>';
+                textDiv.className = 'detection-text detecting';
+                textDiv.textContent = '识别: ' + gestureClass + ' → ' + motionName;
+                subtextDiv.textContent = '置信度: ' + data.confidence.toFixed(2);
+            } else {
+                statusDiv.className = 'detection-status waiting';
+                iconDiv.className = 'detection-icon waiting';
+                iconDiv.innerHTML = '<i class="fas fa-hand-paper"></i>';
+                textDiv.className = 'detection-text waiting';
+                textDiv.textContent = '等待手势识别...';
+                subtextDiv.textContent = '请对摄像头做出手势';
+            }
+        }
+
+        async function updateLogs() {
+            try {
+                var response = await fetch('/api/logs');
+                var result = await response.json();
+                if (result.success) {
+                    var container = document.getElementById('logsContainer');
+                    container.innerHTML = '';
+                    for (var i = result.data.length - 1; i >= 0; i--) {
+                        var log = result.data[i];
+                        var div = document.createElement('div');
+                        div.className = 'log-item';
+                        div.innerHTML = '<span class="log-time">' + log.time + '</span>' +
+                            '<span class="log-level ' + log.level + '">' + log.level + '</span>' +
+                            '<span>' + log.message + '</span>';
+                        container.appendChild(div);
+                    }
+                }
+            } catch (error) {
+                console.error('日志更新失败:', error);
+            }
+        }
+
+        var controlButtons = document.querySelectorAll('.control-btn[data-action]');
+        for (var i = 0; i < controlButtons.length; i++) {
+            (function(btn) {
+                btn.addEventListener('click', async function() {
+                    var action = btn.dataset.action;
+                    addLog('INFO', '发送指令: ' + action);
+                    try {
+                        var response = await fetch('/api/control', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: action })
+                        });
+                        var result = await response.json();
+                        if (result.success) {
+                            addLog('INFO', '已执行: ' + action);
+                            btn.classList.add('active');
+                            setTimeout(function() { btn.classList.remove('active'); }, 200);
+                        } else {
+                            addLog('ERROR', '指令失败: ' + (result.message || ''));
+                        }
+                    } catch (error) {
+                        addLog('ERROR', '请求失败: ' + error.message);
+                    }
+                });
+            })(controlButtons[i]);
+        }
+
+        document.getElementById('speedSlider').addEventListener('input', function() {
+            document.getElementById('speedValue').textContent = this.value + '%';
+        });
+
+        document.getElementById('speedSlider').addEventListener('change', async function() {
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ speed: parseInt(this.value) })
+            });
+            addLog('INFO', '速度: ' + this.value + '%');
+        });
+
+        document.getElementById('thresholdSlider').addEventListener('input', function() {
+            document.getElementById('thresholdValue').textContent = (this.value / 100).toFixed(2);
+        });
+
+        document.getElementById('thresholdSlider').addEventListener('change', async function() {
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ threshold: this.value / 100 })
+            });
+            addLog('INFO', '置信度阈值: ' + (this.value / 100).toFixed(2));
+        });
+
+        window.addEventListener('load', function() {
+            addLog('INFO', '页面已加载，正在连接...');
+            updateStatus();
+            updateLogs();
+            updateInterval = setInterval(function() {
+                updateStatus();
+                updateLogs();
+            }, 10000);
+            setTimeout(checkVideoConnection, 500);
+            connectionCheckInterval = setInterval(checkVideoConnection, 20000);
+        });
+
+        window.addEventListener('beforeunload', function() {
+            if (updateInterval) clearInterval(updateInterval);
+            if (connectionCheckInterval) clearInterval(connectionCheckInterval);
+        });
+    </script>
+</body>
+</html>

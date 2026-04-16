@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势识别控制 - Rosmaster X3</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-body: #f3f4f6;
+            --bg-card: #ffffff;
+            --text-primary: #111827;
+            --text-secondary: #4b5563;
+            --text-muted: #9ca3af;
+            --border-color: #e5e7eb;
+            --accent-blue: #2563eb;
+            --accent-blue-hover: #1d4ed8;
+            --accent-blue-light: #eff6ff;
+            --danger: #dc2626;
+            --danger-light: #fef2f2;
+            --success: #10b981;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 0 30px 0;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            color: var(--text-primary);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header .badge {
+            background: var(--accent-blue-light);
+            color: var(--accent-blue);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: 1px solid rgba(37, 99, 235, 0.2);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+            border: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .card-title i {
+            color: var(--text-secondary);
+        }
+
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            border: 1px solid var(--border-color);
+        }
+
+        .video-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .status-overlay {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-indicator.active { background: var(--success); }
+        .status-indicator.inactive { background: var(--danger); }
+        .status-indicator.detecting { background: var(--accent-blue); }
+
+        .detection-status {
+            text-align: center;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .detection-status.detecting {
+            background: var(--accent-blue-light);
+            border: 1px solid rgba(37, 99, 235, 0.3);
+        }
+
+        .detection-status.waiting {
+            background: #f9fafb;
+            border: 1px dashed var(--border-color);
+        }
+
+        .detection-icon {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+
+        .detection-icon.detecting { color: var(--accent-blue); }
+        .detection-icon.waiting { color: var(--text-muted); }
+
+        .detection-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .detection-text.detecting { color: var(--accent-blue); }
+        .detection-text.waiting { color: var(--text-secondary); }
+
+        .detection-subtext {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .control-panel {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .control-btn {
+            padding: 16px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        .control-btn:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
+            color: var(--text-primary);
+        }
+
+        .control-btn.active {
+            background: var(--accent-blue-light);
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        .control-btn.stop-btn {
+            background: var(--bg-card);
+            color: var(--danger);
+            border-color: var(--border-color);
+        }
+        
+        .control-btn.stop-btn:hover {
+            background: var(--danger-light);
+            border-color: var(--danger);
+        }
+
+        .control-btn i { font-size: 1.25rem; }
+
+        .settings-section { margin: 16px 0; }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .setting-row:last-child { border-bottom: none; }
+
+        .setting-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            max-width: 180px;
+        }
+
+        .slider {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            background: var(--border-color);
+            border-radius: 2px;
+            outline: none;
+            accent-color: var(--accent-blue);
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .slider-value {
+            min-width: 40px;
+            text-align: right;
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .stat-item {
+            background: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #f3f4f6;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-box {
+            background: #f9fafb;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .gesture-legend {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .gesture-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .gesture-item .gesture-icon {
+            color: var(--text-primary);
+            width: 16px;
+            text-align: center;
+        }
+
+        .gesture-item .gesture-arrow { color: var(--text-muted); }
+        .gesture-item .gesture-action {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .info-list p {
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .info-list p:last-child { margin-bottom: 0; }
+        .info-list i { color: var(--text-muted); }
+
+        .logs-container {
+            max-height: 250px;
+            overflow-y: auto;
+            background: #111827; /* 保持日志区域为深色，更有开发者终端的感觉 */
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .log-item {
+            padding: 4px 0;
+            font-size: 0.8rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: #d1d5db;
+        }
+        .log-item:last-child { border-bottom: none; }
+
+        .log-time {
+            color: #6b7280;
+            margin-right: 12px;
+        }
+
+        .log-level {
+            margin-right: 12px;
+            font-weight: 600;
+        }
+
+        .log-level.INFO { color: #34d399; }
+        .log-level.WARNING { color: #fbbf24; }
+        .log-level.ERROR { color: #f87171; }
+
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .control-panel { grid-template-columns: repeat(3, 1fr); }
+        }
+        
+        @media (max-width: 480px) {
+            .gesture-legend { grid-template-columns: 1fr; }
+            .control-panel { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>手势识别控制终端 <span class="badge">Rosmaster X3</span></h1>
+        </div>
+
+        <div class="main-grid">
+            <div class="left-panel">
+                <div class="card">
+                    <div class="card-title">
+                        <i class="fas fa-video"></i> 实时检测画面
+                    </div>
+                    <div class="video-container">
+                        <img src="/video_feed" alt="Video Stream" id="videoStream">
+                        <div class="status-overlay">
+                            <span class="status-indicator inactive" id="statusIndicator"></span>
+                            <span id="connectionStatus">连接中...</span>
+                        </div>
+                    </div>
+
+                    <div class="detection-status waiting" id="detectionStatus">
+                        <div class="detection-icon waiting" id="detectionIcon">
+                            <i class="fas fa-hand-paper"></i>
+                        </div>
+                        <div class="detection-text waiting" id="detectionText">等待手势识别...</div>
+                        <div class="detection-subtext" id="detectionSubtext">请对摄像头做出手势</div>
+                    </div>
+
+                    <div class="card-title" style="margin-top: 32px;">
+                        <i class="fas fa-gamepad"></i> 运动控制
+                    </div>
+                    <div class="control-panel">
+                        <button class="control-btn" data-action="FORWARD">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>前进</span>
+                        </button>
+                        <button class="control-btn" data-action="LEFT">
+                            <i class="fas fa-arrow-left"></i>
+                            <span>左移</span>
+                        </button>
+                        <button class="control-btn" data-action="RIGHT">
+                            <i class="fas fa-arrow-right"></i>
+                            <span>右移</span>
+                        </button>
+                        <button class="control-btn" data-action="BACKWARD">
+                            <i class="fas fa-arrow-down"></i>
+                            <span>后退</span>
+                        </button>
+                        <button class="control-btn" data-action="ROTATE_LEFT">
+                            <i class="fas fa-undo"></i>
+                            <span>左旋</span>
+                        </button>
+                        <button class="control-btn" data-action="ROTATE_RIGHT">
+                            <i class="fas fa-redo"></i>
+                            <span>右旋</span>
+                        </button>
+                    </div>
+                    <button class="control-btn stop-btn" style="width: 100%; margin-top: 12px; flex-direction: row; justify-content: center;" data-action="stop">
+                        <i class="fas fa-stop-circle"></i>
+                        <span>紧急停止</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="right-panel">
+                <div class="card">
+                    <div class="card-title">
+                        <i class="fas fa-sliders-h"></i> 参数调节
+                    </div>
+                    <div class="settings-section">
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <i class="fas fa-tachometer-alt"></i>
+                                <span>机盘速度</span>
+                            </div>
+                            <div class="slider-container">
+                                <input type="range" class="slider" id="speedSlider" min="0" max="100" value="70">
+                                <span class="slider-value" id="speedValue">70%</span>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <i class="fas fa-crosshairs"></i>
+                                <span>置信度阈值</span>
+                            </div>
+                            <div class="slider-container">
+                                <input type="range" class="slider" id="thresholdSlider" min="10" max="100" value="50">
+                                <span class="slider-value" id="thresholdValue">0.50</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-title">
+                        <i class="fas fa-chart-bar"></i> 运行状态
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="fpsValue">0</div>
+                            <div class="stat-label">处理帧率 (FPS)</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="confidenceValue">0.00</div>
+                            <div class="stat-label">当前置信度</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalDetections">0</div>
+                            <div class="stat-label">累计检测次数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="modelStatus" style="font-size: 1.1rem; line-height: 1.5rem; margin-top: 6px;">-</div>
+                            <div class="stat-label">模型状态</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-title">
+                        <i class="fas fa-info-circle"></i> 系统配置与映射
+                    </div>
+                    
+                    <div class="info-box info-list" style="margin-bottom: 16px;">
+                        <p><i class="fas fa-brain"></i> <strong>识别模型:</strong> YOLO11n-ELA 自定义模型</p>
+                        <p><i class="fas fa-layer-group"></i> <strong>分类数量:</strong> 7 种手势动作 + 背景类</p>
+                        <p><i class="fas fa-cogs"></i> <strong>控制逻辑:</strong> 连续15帧未检测到有效动作则自动判定为停止</p>
+                    </div>
+
+                    <div class="info-box">
+                        <div class="gesture-legend">
+                            <div class="gesture-item">
+                                <span class="gesture-icon"><i class="fas fa-hand-point-up"></i></span>
+                                <span>forward</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">前进</span>
+                            </div>
+                            <div class="gesture-item">
+                                <span class="gesture-icon"><i class="fas fa-hand-point-down"></i></span>
+                                <span>backward</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">后退</span>
+                            </div>
+                            <div class="gesture-item">
+                                <span class="gesture-icon"><i class="fas fa-hand-point-left"></i></span>
+                                <span>left</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">左移</span>
+                            </div>
+                            <div class="gesture-item">
+                                <span class="gesture-icon"><i class="fas fa-hand-point-right"></i></span>
+                                <span>right</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">右移</span>
+                            </div>
+                            <div class="gesture-item">
+                                <span class="gesture-icon"><i class="fas fa-undo"></i></span>
+                                <span>rotate_l</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">左旋</span>
+                            </div>
+                            <div class="gesture-item">
+                                <span class="gesture-icon"><i class="fas fa-redo"></i></span>
+                                <span>rotate_r</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action">右旋</span>
+                            </div>
+                            <div class="gesture-item" style="grid-column: span 2; justify-content: center; background: #fff;">
+                                <span class="gesture-icon"><i class="fas fa-hand-paper"></i></span>
+                                <span>stop</span>
+                                <span class="gesture-arrow">→</span>
+                                <span class="gesture-action" style="color: var(--danger);">停止</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-title">
+                        <i class="fas fa-terminal"></i> 终端日志
+                    </div>
+                    <div class="logs-container" id="logsContainer">
+                        <div class="log-item">等待系统启动...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var currentAction = 'STOP';
+        var updateInterval = null;
+        var videoConnected = false;
+        var connectionCheckInterval = null;
+        var localLogs = [];
+
+        var GESTURE_NAMES = {
+            'FORWARD': '前进',
+            'BACKWARD': '后退',
+            'LEFT': '左移',
+            'RIGHT': '右移',
+            'ROTATE_LEFT': '左旋转',
+            'ROTATE_RIGHT': '右旋转',
+            'STOP': '停止'
+        };
+
+        function addLog(level, message) {
+            var now = new Date();
+            var timestamp = now.getHours().toString().padStart(2, '0') + ':' +
+                             now.getMinutes().toString().padStart(2, '0') + ':' +
+                             now.getSeconds().toString().padStart(2, '0');
+            localLogs.push({ time: timestamp, level: level, message: message });
+            if (localLogs.length > 50) localLogs.shift();
+            updateLogsUI();
+        }
+
+        function updateLogsUI() {
+            var container = document.getElementById('logsContainer');
+            container.innerHTML = '';
+            for (var i = localLogs.length - 1; i >= 0; i--) {
+                var log = localLogs[i];
+                var div = document.createElement('div');
+                div.className = 'log-item';
+                div.innerHTML = '<span class="log-time">' + log.time + '</span>' +
+                    '<span class="log-level ' + log.level + '">' + log.level + '</span>' +
+                    '<span>' + log.message + '</span>';
+                container.appendChild(div);
+            }
+        }
+
+        var videoStream = document.getElementById('videoStream');
+        var statusIndicator = document.getElementById('statusIndicator');
+        var connectionStatus = document.getElementById('connectionStatus');
+
+        function checkVideoConnection() {
+            if (videoStream.complete && videoStream.naturalHeight !== 0) {
+                if (!videoConnected) {
+                    videoConnected = true;
+                    statusIndicator.className = 'status-indicator active';
+                    connectionStatus.textContent = '已连接';
+                    addLog('INFO', '视频流已连接');
+                }
+            } else {
+                if (videoConnected) {
+                    videoConnected = false;
+                    statusIndicator.className = 'status-indicator inactive';
+                    connectionStatus.textContent = '连接断开';
+                    addLog('WARNING', '视频流已断开');
+                }
+            }
+        }
+
+        videoStream.onload = checkVideoConnection;
+        videoStream.onerror = function() {
+            if (videoConnected) {
+                videoConnected = false;
+                statusIndicator.className = 'status-indicator inactive';
+                connectionStatus.textContent = '连接失败';
+                addLog('ERROR', '视频流连接失败');
+            }
+        };
+
+        async function updateStatus() {
+            try {
+                var response = await fetch('/api/status');
+                var result = await response.json();
+                if (result.success) {
+                    var data = result.data;
+                    var detecting = data.gesture_detected && data.confidence > 0.5;
+                    updateDetectionUI(detecting, data);
+
+                    document.getElementById('fpsValue').textContent = data.fps.toFixed(1);
+                    document.getElementById('confidenceValue').textContent = data.confidence.toFixed(2);
+                    document.getElementById('totalDetections').textContent = data.total_detections;
+
+                    var modelEl = document.getElementById('modelStatus');
+                    modelEl.textContent = data.model_loaded ? '已就绪' : '未加载';
+                    modelEl.style.color = data.model_loaded ? 'var(--success)' : 'var(--danger)';
+
+                    document.getElementById('speedSlider').value = data.speed_percent;
+                    document.getElementById('speedValue').textContent = data.speed_percent + '%';
+
+                    currentAction = data.current_gesture;
+                }
+            } catch (error) {
+                console.error('状态更新失败:', error);
+                if (videoConnected) {
+                    videoConnected = false;
+                    statusIndicator.className = 'status-indicator inactive';
+                    connectionStatus.textContent = '后端未响应';
+                }
+            }
+        }
+
+        function updateDetectionUI(detecting, data) {
+            var statusDiv = document.getElementById('detectionStatus');
+            var iconDiv = document.getElementById('detectionIcon');
+            var textDiv = document.getElementById('detectionText');
+            var subtextDiv = document.getElementById('detectionSubtext');
+
+            if (detecting) {
+                var gestureClass = data.detected_class || '';
+                var motionName = GESTURE_NAMES[data.current_gesture] || data.current_gesture;
+                statusDiv.className = 'detection-status detecting';
+                iconDiv.className = 'detection-icon detecting';
+                iconDiv.innerHTML = '<i class="fas fa-hand-sparkles"></i>';
+                textDiv.className = 'detection-text detecting';
+                textDiv.textContent = '识别: ' + gestureClass + ' → ' + motionName;
+                subtextDiv.textContent = '置信度: ' + data.confidence.toFixed(2);
+            } else {
+                statusDiv.className = 'detection-status waiting';
+                iconDiv.className = 'detection-icon waiting';
+                iconDiv.innerHTML = '<i class="fas fa-hand-paper"></i>';
+                textDiv.className = 'detection-text waiting';
+                textDiv.textContent = '等待手势识别...';
+                subtextDiv.textContent = '请对摄像头做出手势';
+            }
+        }
+
+        async function updateLogs() {
+            try {
+                var response = await fetch('/api/logs');
+                var result = await response.json();
+                if (result.success) {
+                    var container = document.getElementById('logsContainer');
+                    container.innerHTML = '';
+                    for (var i = result.data.length - 1; i >= 0; i--) {
+                        var log = result.data[i];
+                        var div = document.createElement('div');
+                        div.className = 'log-item';
+                        div.innerHTML = '<span class="log-time">' + log.time + '</span>' +
+                            '<span class="log-level ' + log.level + '">' + log.level + '</span>' +
+                            '<span>' + log.message + '</span>';
+                        container.appendChild(div);
+                    }
+                }
+            } catch (error) {
+                console.error('日志更新失败:', error);
+            }
+        }
+
+        var controlButtons = document.querySelectorAll('.control-btn[data-action]');
+        for (var i = 0; i < controlButtons.length; i++) {
+            (function(btn) {
+                btn.addEventListener('click', async function() {
+                    var action = btn.dataset.action;
+                    addLog('INFO', '手动发送指令: ' + action);
+                    try {
+                        var response = await fetch('/api/control', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: action })
+                        });
+                        var result = await response.json();
+                        if (result.success) {
+                            addLog('INFO', '指令已执行: ' + action);
+                            btn.classList.add('active');
+                            setTimeout(function() { btn.classList.remove('active'); }, 200);
+                        } else {
+                            addLog('ERROR', '指令失败: ' + (result.message || ''));
+                        }
+                    } catch (error) {
+                        addLog('ERROR', '请求失败: ' + error.message);
+                    }
+                });
+            })(controlButtons[i]);
+        }
+
+        document.getElementById('speedSlider').addEventListener('input', function() {
+            document.getElementById('speedValue').textContent = this.value + '%';
+        });
+
+        document.getElementById('speedSlider').addEventListener('change', async function() {
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ speed: parseInt(this.value) })
+            });
+            addLog('INFO', '调整机盘速度至: ' + this.value + '%');
+        });
+
+        document.getElementById('thresholdSlider').addEventListener('input', function() {
+            document.getElementById('thresholdValue').textContent = (this.value / 100).toFixed(2);
+        });
+
+        document.getElementById('thresholdSlider').addEventListener('change', async function() {
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ threshold: this.value / 100 })
+            });
+            addLog('INFO', '调整置信度阈值至: ' + (this.value / 100).toFixed(2));
+        });
+
+        window.addEventListener('load', function() {
+            addLog('INFO', '控制终端已加载，正在建立连接...');
+            updateStatus();
+            updateLogs();
+            updateInterval = setInterval(function() {
+                updateStatus();
+                updateLogs();
+            }, 10000);
+            setTimeout(checkVideoConnection, 500);
+            connectionCheckInterval = setInterval(checkVideoConnection, 20000);
+        });
+
+        window.addEventListener('beforeunload', function() {
+            if (updateInterval) clearInterval(updateInterval);
+            if (connectionCheckInterval) clearInterval(connectionCheckInterval);
+        });
+    </script>
+</body>
+</html>
