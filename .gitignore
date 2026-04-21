@@ -1,6 +1,9 @@
 # Claude CLI
 .claude/
 
+# 论文文件夹
+论文/
+
 # Python
 __pycache__/
 *.py[cod]
