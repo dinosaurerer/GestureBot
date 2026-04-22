@@ -9,7 +9,7 @@
   
 </p>
 
-https://github.com/dinosaurerer/GestureBot/issues/1#issue-4306496492
+https://github.com/user-attachments/assets/d0ed9f7a-1411-40e4-8a6c-04cacf6c3812
 
 ## 系统概览
 
