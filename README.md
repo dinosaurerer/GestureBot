@@ -210,7 +210,7 @@ GestureBot 数据集包含 7 类控制手势，共 1,549 张图像，分辨率 6
 
 ### 环境要求
 
-- Python >= 3.10
+- Python >= 3.9
 - JetPack 6.2（Jetson 部署）
 - Rosmaster X3 硬件（实际控制）
 
@@ -223,7 +223,7 @@ pip install -r requirements.txt
 ### 运行系统
 
 ```bash
-# 基础运行（使用默认参数）
+# X3运行（使用默认参数）
 python main.py
 
 # 带自定义参数运行
@@ -258,29 +258,27 @@ python kaggle/model_pt_onnx_engine.py
 
 ```
 GestureBot/
-├── main.py                          # 主程序入口（GestureControlSystem）
-├── controller/
-│   └── wheel_controller.py          # X3WheelController 运动控制器
-├── system/
-│   ├── state.py                     # SystemState 线程安全状态管理
-│   └── logger.py                    # SimpleLogger 内存日志记录器
-├── app/
-│   └── web_app.py                   # Flask Web 应用与 API 接口
+├── main.py                          # 主程序入口（包含 GestureControlSystem、X3WheelController、SystemState、SimpleLogger、Flask Web 应用）
 ├── templates/
 │   └── gesture_control.html         # Web 控制界面前端模板
-├── predict.py                       # 模型离线推理测试脚本
 ├── kaggle/
 │   ├── train.py                     # YOLO11n/YOLO11n-ELA 训练脚本
 │   ├── config.yaml                  # 数据集路径与训练超参数
-│   └── model_pt_onnx_engine.py      # 模型导出（PT→ONNX→TensorRT）
+│   ├── model_pt_onnx_engine.py      # 模型导出（PT→ONNX→TensorRT）
+│   └── predict.py                  # 模型离线推理测试脚本
 ├── dataset/
 │   └── tools/                       # 数据采集、预处理工具
+│       ├── collect_gesture_video.py # 手势视频采集
+│       ├── video_to_images.py       # 视频转训练图像
+│       ├── split_gesturebot_dataset.py # 数据集划分
+│       └── image_quality_checker.py # 图像质量检查
 ├── training_analysis/               # 训练结果分析与可视化
 ├── ultralytics/                     # YOLO11 框架（含 ELA 模块）
 │   ├── nn/modules/ela.py            # ELA 注意力模块实现
 │   └── cfg/models/11/yolo11-ELA.yaml # YOLO11n-ELA 架构配置
-├── requirements.txt                 # 依赖清单
-└── CLAUDE.md                        # 项目完整技术文档
+├── train.py                        # 训练脚本
+├── CLAUDE.md                       # 项目完整技术文档
+└── README.md                       # 项目说明文档
 ```
 
 ---
