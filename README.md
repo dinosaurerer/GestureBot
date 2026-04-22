@@ -171,13 +171,13 @@ GestureBot 数据集包含 7 类控制手势，共 1,549 张图像，分辨率 6
   <img src="./assets/2-3Jetson Orin Nano开发板实物图.png" alt="Jetson Orin Nano" width="45%">
 </p>
 
-| 组件 | 规格 |
-|------|------|
-| **主控板** | NVIDIA Jetson Orin Nano 4GB |
-| **AI 算力** | 34 TOPS (INT8) |
-| **机器人** | Rosmaster X3 麦克纳姆轮全向移动平台 |
-| **摄像头** | USB 摄像头 (640×480) |
-| **通讯** | USB 串口 (/dev/ttyUSB0, 115200bps) |
+| **组件** | **规格** | **组件** | **规格** |
+|:---:|:---|:---:|:---|
+| **机器人** | Rosmaster X3 麦克纳姆轮全向移动平台 | **AI 算力** | 34 TOPS (INT8) |
+| **上位机** | NVIDIA Jetson Orin Nano 4GB | **下位机** | STM32 扩展板 |
+| **摄像头** | USB 摄像头 (640×480) | **深度摄像头** | 奥比中光深度摄像头 |
+| **激光雷达** | YDLIDARX3 激光雷达 | **显示屏** | 7 寸屏扩展包 |
+| **通讯** | USB 串口 (/dev/ttyUSB0, 115200bps) | **系统镜像** | Jetson Orin 系列 SUPER 引导（JetPack 6.2） |
 
 ---
 
@@ -211,8 +211,8 @@ GestureBot 数据集包含 7 类控制手势，共 1,549 张图像，分辨率 6
 ### 环境要求
 
 - Python >= 3.10
-- JetPack 5.1.2+（Jetson 部署时）
-- Rosmaster X3 硬件（实际控制时）
+- JetPack 6.2（Jetson 部署）
+- Rosmaster X3 硬件（实际控制）
 
 ### 安装依赖
 
