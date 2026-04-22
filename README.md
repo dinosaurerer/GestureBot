@@ -2,21 +2,20 @@
 
 # GestureBot
 
-### 基于手势识别的人车运动交互控制系统
+**基于手势识别的人车运动交互控制系统**
 
-**Gesture-Based Human-Vehicle Interaction Control System**
+[![](https://img.shields.io/badge/YOLO11-ELA-blue?style=flat-square)]()
+[![](https://img.shields.io/badge/Platform-Jetson_Orin_Nano-green?style=flat-square)]()
+[![](https://img.shields.io/badge/Robot-Rosmaster_X3-orange?style=flat-square)]()
+[![](https://img.shields.io/badge/License-MIT-purple?style=flat-square)]()
+
+基于改进 YOLO11n-ELA 的实时手势识别控制系统，通过 USB 摄像头捕获手势指令，驱动 Rosmaster X3 麦克纳姆轮机器人完成 7 种全向运动控制。
 
 </div>
 
 <p align="center">
   <img src="./assets/生成科技感宣传图.png" alt="GestureBot" width="100%">
 </p>
-
-<div align="center">
-
-基于改进 YOLO11n-ELA 的实时手势识别控制系统，通过 USB 摄像头捕获手势指令，驱动 Rosmaster X3 麦克纳姆轮机器人完成 7 种全向运动控制。
-
-</div>
 
 <div align="center">
 
