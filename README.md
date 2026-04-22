@@ -5,8 +5,12 @@
 基于 YOLO11 的实时手势识别控制系统，通过摄像头捕获手势指令，驱动 Rosmaster X3 机器人完成前进、后退、转向等运动控制。
 
 <p align="center">
-  <img src="./assets/GestureBot-seedream.png" alt="GestureBot Logo" width="600">
+  <img src="./assets/生成科技感宣传图 .png" alt="GestureBot Logo" width="600">
+  
 </p>
+
+https://imgbed.094694.xyz/file/blog/NUdXDmwg.mp4   
+https://github.com/user-attachments/assets/fe39e095-af2c-4ec9-b68d-a8ba97e505ab
 
 ## 系统概览
 
