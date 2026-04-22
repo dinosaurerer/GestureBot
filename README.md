@@ -11,13 +11,13 @@
 
 基于改进 YOLO11n-ELA 的实时手势识别控制系统，通过 USB 摄像头捕获手势指令，驱动 Rosmaster X3 麦克纳姆轮机器人完成 7 种全向运动控制。
 
-</div>
+<!-- </div>
 
 <p align="center">
   <img src="./assets/生成科技感宣传图.png" alt="GestureBot" width="100%">
 </p>
 
-<div align="center">
+<div align="center"> -->
 
 https://github.com/user-attachments/assets/c534d7d8-f00a-4f19-986d-0ddb50c9c714
 
