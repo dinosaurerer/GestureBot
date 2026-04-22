@@ -9,8 +9,7 @@
   
 </p>
 
-https://imgbed.094694.xyz/file/blog/NUdXDmwg.mp4   
-https://github.com/user-attachments/assets/fe39e095-af2c-4ec9-b68d-a8ba97e505ab
+https://github.com/dinosaurerer/GestureBot/issues/1#issue-4306496492
 
 ## 系统概览
 
