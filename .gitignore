@@ -60,7 +60,6 @@ Thumbs.db
 /ultralytics
 
 # Datasets
-dataset/
 original_images_ges/
 backup
 datasets/
