@@ -104,15 +104,19 @@ YOLO11 网络由 Backbone（C3k2 模块）、Neck（FPN+PAN 双向融合）和 H
 
 在 YOLO11n 的 **Neck 特征融合层** 3 个 Concat 节点后各插入一个 ELA（Efficient Local Attention）模块，通过 1D 卷积 + GroupNorm 捕获局部空间依赖，在极小的参数增量下提升手势定位精度。
 
-### 💬 常见问题 (FAQ)
+### 💬 小小疑问 (FAQ)
 
-#### Q: 为什么选择 ELA 而不是其他注意力机制？
+<details>
+<summary><b>Q: 为什么选择 ELA 而不是其他注意力机制？</b></summary>
+<br>
+A: 相比 SE 模块（全局池化导致空间位置信息完全丢失）和 CA 模块（中间步骤需要通道降维，造成信息损失），ELA 保留了双向空间位置感知能力，且全程不压缩通道维度，在参数增量和检测精度之间取得了最优平衡。
+</details>
 
-**A:** 相比 SE 模块（全局池化导致空间位置信息完全丢失）和 CA 模块（中间步骤需要通道降维，造成信息损失），ELA 保留了双向空间位置感知能力，且全程不压缩通道维度，在参数增量和检测精度之间取得了最优平衡。
-
-#### Q: 为什么选择在 Neck 层的 3 个位置插入 ELA 模块？
-
-**A:** Neck 层的 3 个 Concat 节点是 Backbone 原始特征与上层语义特征的交汇点，在此处插入 ELA 模块可以对融合后的特征进行注意力重校准（Recalibration），使模型在多尺度特征融合阶段更加关注手势目标的边缘与轮廓信息。同时，仅修改 Neck 层、保持 Backbone 不变，可以最大化兼容 YOLO11n 的预训练权重。
+<details>
+<summary><b>Q: 为什么选择在 Neck 层的 3 个位置插入 ELA 模块？</b></summary>
+<br>
+A: Neck 层的 3 个 Concat 节点是 Backbone 原始特征与上层语义特征的交汇点，在此处插入 ELA 模块可以对融合后的特征进行注意力重校准（Recalibration），使模型在多尺度特征融合阶段更加关注手势目标的边缘与轮廓信息。同时，仅修改 Neck 层、保持 Backbone 不变，可以最大化兼容 YOLO11n 的预训练权重。
+</details>
 
 <p align="center">
   <img src="./assets/2-2-1常见注意力机制结构对比图.png" alt="注意力机制对比" width="70%">
