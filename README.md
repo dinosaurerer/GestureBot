@@ -1,175 +1,183 @@
-# GestureBot - 基于手势识别的人车运动交互控制系统
+<div align="center">
+
+# GestureBot
+
+### 基于手势识别的人车运动交互控制系统
 
 **Gesture-Based Human-Vehicle Interaction Control System**
 
-基于 YOLO11 的实时手势识别控制系统，通过摄像头捕获手势指令，驱动 Rosmaster X3 机器人完成前进、后退、转向等运动控制。
+</div>
 
 <p align="center">
-  <img src="./assets/生成科技感宣传图 .png" alt="GestureBot Logo" width="600">
-  
+  <img src="./assets/生成科技感宣传图.png" alt="GestureBot" width="100%">
 </p>
 
-https://github.com/user-attachments/assets/d0ed9f7a-1411-40e4-8a6c-04cacf6c3812
+<div align="center">
 
-## 系统概览
+基于改进 YOLO11n-ELA 的实时手势识别控制系统，通过 USB 摄像头捕获手势指令，驱动 Rosmaster X3 麦克纳姆轮机器人完成 7 种全向运动控制。
+
+</div>
+
+<div align="center">
+
+https://github.com/user-attachments/assets/c534d7d8-f00a-4f19-986d-0ddb50c9c714
+
+https://github.com/user-attachments/assets/048e9c75-7557-490f-b096-9809656b1eb5
+
+</div>
+
+---
+
+## 系统总体流程
 
 <p align="center">
-  <img src="./assets/系统概览图.png" width="600">
+  <img src="./assets/1-2系统总体流程图.png" alt="系统总体流程图" width="85%">
 </p>
 
-**核心流程**：USB 摄像头实时捕获画面 → YOLO11 推理识别 7 种手势 → 映射为运动指令 → 驱动机器人执行动作，同时通过 Web 界面提供实时视频流和手动控制。
+系统通过 USB 摄像头实时采集图像，经 YOLO11n-ELA 模型推理识别 7 类手势，将手势映射为运动指令，通过串口下发至 Rosmaster X3 下位机执行运动控制，同时基于 Flask 提供 Web 可视化界面支持远程监控与手动控制。
+
+---
+
+## 系统架构
+
+### 三层架构设计
+
+<p align="center">
+  <img src="./assets/4-2系统总体架构图 （三层：感知层-控制层-交互层）.png" alt="三层架构" width="90%">
+</p>
+
+系统采用**感知层—控制层—交互层**三层架构：
+
+| 层级 | 功能 | 核心组件 |
+|------|------|----------|
+| **感知层** | 图像采集与手势检测 | USB 摄像头 + YOLO11n-ELA 模型 |
+| **控制层** | 指令映射与运动控制 | X3WheelController + 串口通讯 |
+| **交互层** | Web 远程监控与参数调节 | Flask + Gevent HTTP 服务 |
+
+### 多线程架构
+
+<p align="center">
+  <img src="./assets/4-3多线程架构流程图.png" alt="多线程架构" width="75%">
+</p>
+
+系统采用三线程架构：视频处理线程（推理+控制）、Web 服务线程（HTTP 请求处理）、主线程（守护与资源释放），通过 `threading.Lock` 保证线程安全。
+
+---
 
 ## 手势控制映射
 
 系统支持 7 种手势，每种手势直接对应一种机器人运动状态：
 
-
-
 <div align="center">
-  <img src="https://img.shields.io/badge/forward-前进-blue?style=flat-square" />
-  <img src="https://img.shields.io/badge/backward-后退-blue?style=flat-square" />
-  <img src="https://img.shields.io/badge/left-左移-green?style=flat-square" />
-  <img src="https://img.shields.io/badge/right-右移-green?style=flat-square" />
-  <img src="https://img.shields.io/badge/rotate__left-左旋转-orange?style=flat-square" />
-  <img src="https://img.shields.io/badge/rotate__right-右旋转-orange?style=flat-square" />
-  <img src="https://img.shields.io/badge/stop-停止-red?style=flat-square" />
+
+| 手势 | forward | backward | left | right | rotate_left | rotate_right | stop |
+|:----:|:-------:|:--------:|:----:|:-----:|:-----------:|:------------:|:----:|
+| **指令** | 前进 | 后退 | 左移 | 右移 | 左旋转 | 右旋转 | 停止 |
+| **优先级** | 普通 | 普通 | 普通 | 普通 | 普通 | 普通 | **最高** |
+
 </div>
 
-<table border="0">
-  <tr>
-    <td width="55%">
-      <img src="./assets/手势对照表可视化.jfif" width="100%" style="border-radius: 15px;">
-    </td>
-    <td width="45%" valign="middle">
-      <h4>指令集说明</h4>
-      <p>🔵 <b>纵向:</b> <code>forward</code> | <code>backward</code></p>
-      <p>🟢 <b>平移:</b> <code>left</code> | <code>right</code></p>
-      <p>🟠 <b>旋转:</b> <code>rotate_l</code> | <code>rotate_r</code></p>
-      <p>🔴 <b>状态:</b> <code>stop</code> (15帧失联保护)</p>
-      <hr>
-      <p><i>基于 YOLO11-ELA 识别推理</i></p>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="./assets/ges-7/for.png" width="90" title="Forward">&nbsp;&nbsp;
+  <img src="./assets/ges-7/back.png" width="90" title="Backward">&nbsp;&nbsp;
+  <img src="./assets/ges-7/left.png" width="90" title="Left">&nbsp;&nbsp;
+  <img src="./assets/ges-7/right.png" width="90" title="Right">&nbsp;&nbsp;
+  <img src="./assets/ges-7/r-l.png" width="90" title="Rotate Left">&nbsp;&nbsp;
+  <img src="./assets/ges-7/r-r.png" width="90" title="Rotate Right">&nbsp;&nbsp;
+  <img src="./assets/ges-7/stop.png" width="90" title="Stop">
+</p>
 
+> 连续 15 帧未检测到有效手势时，自动下发停止指令，确保系统安全。
 
-> 连续 15 帧未检测到有效手势时，自动执行停止指令，确保安全性。
+---
 
+## 模型设计与训练
 
-
-
-## 🛠️ 系统架构 (System Architecture)
+### YOLO11 网络架构
 
 <p align="center">
-  <img src="./assets/系统架构图.png" width="800" alt="GestureBot Architecture">
+  <img src="./assets/2-1 YOLO11网络架构图.png" alt="YOLO11 Architecture" width="90%">
 </p>
-<table border="0">
-  <tr>
-    <td width="65%" valign="top">
-      <h4>🧩 核心类实现 (Core Classes)</h4>
-      <ul>
-        <li><code>GestureControlSystem</code> — <b>决策中心</b><br/>
-          <small>驱动视频流线程，集成 YOLO11-ELA 推理引擎，下达高层运动指令。</small><br/><br/></li>  
-        <li><code>X3WheelController</code> — <b>执行驱动</b><br/>
-          <small>对接 Rosmaster X3 底盘，封装 7 种全向移动模式与安全刹车逻辑。</small><br/><br/></li>
-        <li><code>SystemState</code> — <b>状态管理</b><br/>
-          <small>维护全局变量，通过 <code>threading.Lock</code> 确保多线程读写的数据一致性。</small><br/><br/></li>
-        <li><code>SimpleLogger</code> — <b>日志系统</b><br/>
-          <small>轻量化内存缓冲区，支持实时追踪推理延迟与指令下发记录。</small><br/><br/></li>
-      </ul>
-      <blockquote style="font-size: 0.9em;">
-        <b>💡 设计解耦：</b> 这种模块化结构确保了 AI 算法与硬件控制器的完全分离，仅需更换 <code>X3WheelController</code> 即可适配不同底盘。
-      </blockquote>
-    </td>
-    <td width="35%" align="center" valign="middle">
-      <img src="./assets/mermaid-diagram-h.png" width="100%" alt="Class Diagram" style="box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 8px;">
-      <p align="center"><small><i>类关系依赖图</i></small></p>
-    </td>
-  </tr>
-</table>
 
+YOLO11 网络由 Backbone（C3k2 模块）、Neck（FPN+PAN 双向融合）和 Head（解耦检测头）三部分组成。本文选用最轻量的 nano 变体 YOLO11n（2.59M 参数）作为基线模型。
 
+### ELA 注意力模块改进
 
-## 模型训练
+在 YOLO11n 的 **Neck 特征融合层** 3 个 Concat 节点后各插入一个 ELA（Efficient Local Attention）模块，通过 1D 卷积 + GroupNorm 捕获局部空间依赖，在极小的参数增量下提升手势定位精度。
+
+<p align="center">
+  <img src="./assets/2-2-1常见注意力机制结构对比图.png" alt="注意力机制对比" width="70%">
+</p>
+
+<p align="center">
+  <img src="./assets/3-4YOLO11n 与 YOLO11n-ELA 网络架构对比图.png" alt="架构对比" width="95%">
+</p>
 
 ### 数据集
 
+<p align="center">
+  <img src="./assets/3-1 手势识别数据集样本示例（局部裁剪图）.png" alt="数据集样本" width="85%">
+</p>
 
+GestureBot 数据集包含 7 类控制手势，共 1,549 张图像，分辨率 640×640，采用 YOLO 格式标注。
 
-<table border="0">
-  <tr>
-    <td width="35%" valign="top">
-      <h4>📑 样本分布</h4>
-      <ul>
-        <li><b>总计:</b> 1,549 Images</li>
-        <li><b>类别:</b> 7 Gestures</li>
-        <li><b>分辨率:</b> 640 × 640</li>
-      </ul>
-      <h4>📈 数据划分</h4>
-      <img src="https://img.shields.io/badge/Train-70%25-blue?style=flat-square" />
-      <img src="https://img.shields.io/badge/Val-20%25-green?style=flat-square" />
-      <img src="https://img.shields.io/badge/Test-10%25-orange?style=flat-square" />
-      <br><br>
-      <p align="left">
-        <i>采用 YOLO 格式标注，涵盖了不同光照和背景下的真实室内场景。</i>
-      </p>
-    </td>
-    <td width="65%" align="center">
-      <h4>手势识别数据集样本示例（局部裁剪图）</h4>
-      <table border="0">
-        <tr>
-          <td><img src="./assets/ges-7/for.png" width="120" title="Forward" style="border-radius: 8px;"></td>
-          <td><img src="./assets/ges-7/back.png" width="120" title="Backward" style="border-radius: 8px;"></td>
-          <td><img src="./assets/ges-7/stop.png" width="120" title="Stop" style="border-radius: 8px;"></td>
-        </tr>
-        <tr>
-          <td><img src="./assets/ges-7/left.png" width="120" title="Left" style="border-radius: 8px;"></td>
-          <td><img src="./assets/ges-7/right.png" width="120" title="Right" style="border-radius: 8px;"></td>
-          <td><img src="./assets/ges-7/r-l.png" width="120" title="Rotate_Left" style="border-radius: 8px;"></td>
-        </tr>
-        <tr>
-          <td colspan="3" align="center">
-            <img src="./assets/ges-7/r-r.png" width="120" title="Rotate_Right" style="border-radius: 8px;">
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="./assets/3-2数据集类別分布柱状图.jpg" alt="类别分布" width="55%">
+</p>
 
+### 训练结果
 
-### 基线模型（YOLO11n）
+<p align="center">
+  <img src="./assets/3-3YOLO11n基线模型训练损失曲线.png" alt="基线训练曲线" width="45%">
+  &nbsp;&nbsp;
+  <img src="./assets/3-5YOLO11n-ELA训练损失曲线.png" alt="ELA训练曲线" width="45%">
+</p>
 
-| 指标 | 值 |
+### 模型性能对比
+
+| 指标 | YOLO11n（基线） | YOLO11n-ELA（改进） | 变化 |
+|------|:---:|:---:|:---:|
+| 参数量 | 2.62M | 6.13M | +3.51M |
+| Precision | 0.994 | **0.998** | +0.4% |
+| Recall | 1.000 | 1.000 | 持平 |
+| mAP50 | 0.995 | 0.995 | 持平 |
+| mAP50-95 | 0.741 | **0.760** | +1.9% |
+| 误分类数 | 5 例 | **0 例** | 完全消除 |
+
+<p align="center">
+  <img src="./assets/3-7confusion_matrix_baseline.png" alt="基线混淆矩阵" width="42%">
+  &nbsp;&nbsp;
+  <img src="./assets/3-8confusion_matrix_ELA_true.jpg" alt="ELA混淆矩阵" width="42%">
+</p>
+
+---
+
+## 硬件平台
+
+<p align="center">
+  <img src="./assets/2-3Jetson Orin Nano开发板实物图.png" alt="Jetson Orin Nano" width="45%">
+</p>
+
+| 组件 | 规格 |
 |------|------|
-| 模型 | YOLO11n（从零训练） |
-| 训练平台 | Kaggle (2× Tesla T4) |
-| 训练轮次 | 175 (early stopping) |
-| Precision | 0.993 |
-| Recall | 1.000 |
-| mAP50 | **0.995** |
-| mAP50-95 | 0.733 |
-| 参数量 | 2.62M |
+| **主控板** | NVIDIA Jetson Orin Nano 4GB |
+| **AI 算力** | 34 TOPS (INT8) |
+| **机器人** | Rosmaster X3 麦克纳姆轮全向移动平台 |
+| **摄像头** | USB 摄像头 (640×480) |
+| **通讯** | USB 串口 (/dev/ttyUSB0, 115200bps) |
 
-### 模型改进：YOLO11n-ELA
-
-在 YOLO11n 的 Neck 特征融合层中引入 **ELA（Efficient Local Attention）** 注意力机制（CVPR 2024），通过 1D 空间卷积 + GroupNorm 捕获局部空间依赖，提升边界框定位精度。
-
-> 实验数据对比表（训练进行中，完成后补充）
+---
 
 ## Web 控制界面
 
 基于 Flask + Gevent 构建的实时监控与控制界面：
 
-- 实时 MJPEG 视频流显示
-- 手势识别结果实时展示（手势类别 → 运动指令 → 置信度）
+- MJPEG 实时视频流（叠加检测框、手势类别、置信度）
+- 手势识别结果实时展示
 - 7 种运动模式手动控制按钮
-- 速度和置信度阈值滑块调节
-- 系统状态监控（FPS、置信度、检测次数、模型状态）
-- 手势对照表
-- 运行日志
-
-
+- 速度与置信度阈值在线调节
+- 系统状态监控（FPS、置信度、检测次数、运动状态）
+- 系统运行日志
 
 ### API 接口
 
@@ -177,81 +185,104 @@ https://github.com/user-attachments/assets/d0ed9f7a-1411-40e4-8a6c-04cacf6c3812
 |------|------|------|
 | `/` | GET | 主控制界面 |
 | `/video_feed` | GET | MJPEG 实时视频流 |
-| `/api/status` | GET | 系统状态（JSON） |
-| `/api/control` | POST | 手动运动控制 |
-| `/api/settings` | POST/GET | 速度/阈值参数设置 |
-| `/api/logs` | GET | 运行日志 |
+| `/api/status` | GET | 系统实时状态（JSON） |
+| `/api/control` | POST | 手动运动控制指令 |
+| `/api/settings` | POST | 速度/置信度阈值设置 |
+| `/api/logs` | GET | 运行日志查询 |
+| `/api/stop` | POST | 紧急停止（最高优先级） |
+
+---
 
 ## 快速开始
 
 ### 环境要求
 
-- Python >= 3.8
-- CUDA 支持（推理加速）
-- Rosmaster X3 硬件（部署时）
+- Python >= 3.10
+- JetPack 5.1.2+（Jetson 部署时）
+- Rosmaster X3 硬件（实际控制时）
 
 ### 安装依赖
 
 ```bash
-pip install ultralytics flask gevent opencv-python Rosmaster_Lib
+pip install -r requirements.txt
 ```
 
 ### 运行系统
 
 ```bash
-# 基础运行
+# 基础运行（使用默认参数）
 python main.py
 
-# 带参数运行
-python main.py model=/path/to/best.pt speed=80 port=7000 host=192.168.1.100
+# 带自定义参数运行
+python main.py model=/path/to/best.pt speed=80 port=7000 conf=0.6
 
-# 访问 Web 界面
-# http://<host>:6500
+# 调试模式（不实际控制小车）
+python main.py debug dry_run
+
+# 访问 Web 控制界面
+# http://<Jetson_IP>:6500
 ```
 
-### 数据集采集
+### 数据集与训练
 
 ```bash
-# 采集手势视频
+# 手势视频采集（空格键：开始/停止录制，q键：退出）
 python dataset/tools/collect_gesture_video.py
-# 空格键：开始/停止录制 | q键：退出
 
-# 视频转训练图片
+# 视频转训练图像（自动抽帧、去重、划分训练集/验证集）
 python dataset/tools/video_to_images.py
+
+# 模型训练（Kaggle / 本地 GPU）
+python kaggle/train.py --model yolo11-ELA.yaml --data kaggle/config.yaml --epochs 300 --batch 64
+
+# 模型导出（PT → ONNX → TensorRT Engine）
+python kaggle/model_pt_onnx_engine.py
 ```
+
+---
 
 ## 项目结构
 
 ```
 GestureBot/
-├── main.py                    # 主程序（手势识别控制系统）
-├── predict.py                 # 模型推理测试脚本
+├── main.py                          # 主程序入口（GestureControlSystem）
+├── controller/
+│   └── wheel_controller.py          # X3WheelController 运动控制器
+├── system/
+│   ├── state.py                     # SystemState 线程安全状态管理
+│   └── logger.py                    # SimpleLogger 内存日志记录器
+├── app/
+│   └── web_app.py                   # Flask Web 应用与 API 接口
 ├── templates/
-│   └── gesture_control.html   # Web 控制界面
+│   └── gesture_control.html         # Web 控制界面前端模板
+├── predict.py                       # 模型离线推理测试脚本
 ├── kaggle/
-│   ├── train.py               # Kaggle 训练脚本（YOLO11n-ELA）
-│   ├── config.yaml            # 训练超参数配置
-│   ├── model_pt_onnx_engine.py # 模型导出（PT→ONNX→TensorRT）
-│   └── 训练测试结果             # ELA 模型 3 轮验证输出
-├── training_analysis/         # 基线模型训练结果与分析报告
-├── ultralytics/               # YOLO11 框架（含 ELA 模块）
-│   └── nn/modules/ela.py      # ELA 注意力模块实现
-├── dataset/                   # 数据集工具
-│   └── tools/                 # 视频采集、帧提取工具
-└── CLAUDE.md                  # 项目技术文档
+│   ├── train.py                     # YOLO11n/YOLO11n-ELA 训练脚本
+│   ├── config.yaml                  # 数据集路径与训练超参数
+│   └── model_pt_onnx_engine.py      # 模型导出（PT→ONNX→TensorRT）
+├── dataset/
+│   └── tools/                       # 数据采集、预处理工具
+├── training_analysis/               # 训练结果分析与可视化
+├── ultralytics/                     # YOLO11 框架（含 ELA 模块）
+│   ├── nn/modules/ela.py            # ELA 注意力模块实现
+│   └── cfg/models/11/yolo11-ELA.yaml # YOLO11n-ELA 架构配置
+├── requirements.txt                 # 依赖清单
+└── CLAUDE.md                        # 项目完整技术文档
 ```
+
+---
 
 ## 技术栈
 
 | 类别 | 技术 |
 |------|------|
 | 目标检测 | Ultralytics YOLO11 |
-| 注意力机制 | ELA (CVPR 2024) |
+| 注意力机制 | ELA (Efficient Local Attention, CVPR 2024) |
 | Web 框架 | Flask + Gevent |
 | 图像处理 | OpenCV |
-| 机器人控制 | Rosmaster_Lib |
-| 模型部署 | TensorRT (Jetson) |
-| 训练平台 | Kaggle (2× Tesla T4) |
+| 机器人控制 | Rosmaster_Lib (串口通讯) |
+| 模型部署 | TensorRT (Jetson 端侧推理加速) |
+| 训练平台 | Kaggle (2× Tesla T4 16G GPU) |
 
 ## 许可证
 
